@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#F2F0EC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="fg">#1B1A17</color>
+    <color name="muted">#6E6A62</color>
+    <color name="line">#DDD8CF</color>
+    <color name="bar">#CFC9BE</color>
+    <color name="accent">#D9480F</color>
+    <color name="on_accent">#FFFFFF</color>
+    <color name="ok">#2F8F5B</color>
+    <color name="warn">#C98A06</color>
+    <color name="over">#C2271B</color>
+
+    <!-- The dark "film" card for today's count, the same in both themes -->
+    <color name="film">#1B1A17</color>
+    <color name="film_fg">#F6F2EA</color>
+    <color name="film_muted">#A8A297</color>
+
+    <color name="block_scrim">#F5161513</color>
+
+    <color name="ic_bg">#D9480F</color>
+</resources>
