@@ -1,23 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Night Garden palette (design_docs/reel-counter-mockups.html). This file is the light
+     variant, derived from the same hues with darker mood colours for contrast on white; the
+     exact Night Garden values are in values-night/colors.xml. -->
 <resources>
-    <color name="bg">#F2F0EC</color>
+    <!-- Neutrals -->
+    <color name="bg">#F5F6FB</color>
     <color name="surface">#FFFFFF</color>
-    <color name="fg">#1B1A17</color>
-    <color name="muted">#6E6A62</color>
-    <color name="line">#DDD8CF</color>
-    <color name="bar">#CFC9BE</color>
-    <color name="accent">#D9480F</color>
+    <color name="raised">#ECEEF6</color>
+    <color name="line">#DCDFEC</color>
+    <color name="fg">#0B0D17</color>
+    <color name="muted">#4C5170</color>
+    <color name="faint">#6E7392</color>
+    <color name="bar">#DCDFEC</color>
+
+    <!-- Brand: calm mint; text on brand buttons -->
+    <color name="accent">#12A57A</color>
     <color name="on_accent">#FFFFFF</color>
-    <color name="ok">#2F8F5B</color>
+    <color name="premium">#6E5BE0</color>
+
+    <!-- Mood ramp: one colour at a time, chosen by % of the daily limit -->
+    <color name="mood_calm">#12A57A</color>
+    <color name="mood_curious">#1E95D6</color>
+    <color name="mood_worried">#C98A06</color>
+    <color name="mood_sad">#E0663F</color>
+    <color name="mood_angry">#E5354A</color>
+
+    <!-- Older names, kept for progress bars: ok / warn / over -->
+    <color name="ok">#12A57A</color>
     <color name="warn">#C98A06</color>
-    <color name="over">#C2271B</color>
+    <color name="over">#E5354A</color>
 
-    <!-- The dark "film" card for today's count, the same in both themes -->
-    <color name="film">#1B1A17</color>
-    <color name="film_fg">#F6F2EA</color>
-    <color name="film_muted">#A8A297</color>
+    <!-- Overlays (pause and block screens) are always Night, in both themes -->
+    <color name="film">#0B0D17</color>
+    <color name="film_fg">#F2F3F8</color>
+    <color name="film_muted">#A3A8C3</color>
+    <color name="block_scrim">#F70B0D17</color>
+    <color name="night_raised">#1E2235</color>
+    <color name="night_calm">#4FE3B0</color>
+    <color name="night_on_calm">#062A1F</color>
+    <color name="night_angry">#FF4D5E</color>
+    <color name="night_faint">#7F84A3</color>
 
-    <color name="block_scrim">#F5161513</color>
+    <!-- Iris: eye white, pupil, tear -->
+    <color name="iris_eye">#F2F3F8</color>
+    <color name="iris_pupil">#0B0D17</color>
+    <color name="iris_tear">#5CC8FF</color>
 
-    <color name="ic_bg">#D9480F</color>
+    <!-- Widgets: always Night, so the white eyes stand out on any wallpaper -->
+    <color name="widget_bg">#F20B0D17</color>
+    <color name="widget_fg">#FFF2F3F8</color>
+    <color name="widget_muted">#FFA3A8C3</color>
+    <color name="widget_track">#FF1E2235</color>
+    <color name="widget_calm">#FF4FE3B0</color>
+    <color name="widget_curious">#FF5CC8FF</color>
+    <color name="widget_worried">#FFFFC24D</color>
+    <color name="widget_sad">#FFFF8A65</color>
+    <color name="widget_angry">#FFFF4D5E</color>
+    <color name="widget_ok">#FF4FE3B0</color>
+    <color name="widget_warn">#FFFFC24D</color>
+    <color name="widget_over">#FFFF4D5E</color>
 </resources>

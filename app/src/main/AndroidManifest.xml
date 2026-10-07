@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
@@ -29,25 +30,76 @@
         <package android:name="com.eterno.shortvideos" />
         <package android:name="com.whatsapp" />
         <package android:name="org.telegram.messenger" />
+        <!-- Names and icons of every launcher app for the full screen time list. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Home screen apps, left out of screen time. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+        </intent>
     </queries>
 
     <application
+        android:name=".ReelCounterApp"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.ReelCounter">
 
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.ReelCounter.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".OnboardingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".UsageActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- Home-screen widgets (code in the widget package) -->
+
+        <!-- Widgets are hidden until turned on in Settings, while they're being redesigned. -->
+        <receiver
+            android:name=".widget.TodayWidget"
+            android:enabled="false"
+            android:exported="false"
+            android:label="@string/widget_today_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.DashboardWidget"
+            android:enabled="false"
+            android:exported="false"
+            android:label="@string/widget_dashboard_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_dashboard_info" />
+        </receiver>
+
+        <!-- Taps on the quick-actions widget, and timed widget refreshes -->
         <service
             android:name=".KeepAliveService"
             android:exported="false"

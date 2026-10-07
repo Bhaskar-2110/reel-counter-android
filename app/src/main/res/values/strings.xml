@@ -26,17 +26,17 @@
     <string name="over_limit">%1$d reels past your limit of %2$d</string>
     <string name="at_limit">Limit reached. Reels, Shorts and Spotlight are blocked until tomorrow. The rest of each app still works.</string>
     <string name="limit_toast">%1$d reels today. Your limit is %2$d.</string>
-
-    <string name="block_title">Daily limit reached</string>
-    <string name="block_message">You\'ve watched %1$d reels today. Your limit is %2$d.</string>
+    <string name="block_title">That\'s the limit for today.</string>
+    <string name="block_message_app">You set %1$d reels for %2$s.</string>
+    <string name="block_message">You set %1$d reels a day for all apps.</string>
     <string name="block_hint">Reels and Shorts open again tomorrow. The rest of the app still works, and you can change your limit in Reel Counter.</string>
     <string name="close">Close</string>
 
     <string name="pause_title">This app will kill your time</string>
     <string name="pause_body">You could do something productive instead.</string>
     <string name="pause_message">You\'ve opened social apps %1$d times today.</string>
-    <string name="pause_leave">Close app and do something useful</string>
-    <string name="pause_continue_in">Continue in %1$d s</string>
+    <string name="pause_leave">Close app</string>
+    <string name="pause_continue_in">Continue anyway in %1$d s</string>
     <string name="pause_continue">Continue anyway</string>
     <string name="opens_free">Opened social apps %1$d times today · %2$d more before the pause screen starts</string>
     <string name="opens_paused">Opened social apps %1$d times today · next pause %2$d s</string>
@@ -53,11 +53,127 @@
     <string name="duration_minutes">%1$d min</string>
     <string name="duration_hours">%1$dh %2$dm</string>
 
+    <string name="usage_see_all">See full screen time</string>
+    <string name="usage_screen_title">Screen time</string>
+    <string name="usage_prev_day">Previous day</string>
+    <string name="usage_next_day">Next day</string>
+    <string name="usage_yesterday">Yesterday</string>
+    <string name="usage_total_label">Total screen time</string>
+    <string name="usage_unlocks">Unlocks</string>
+    <string name="usage_notifications">Notifications</string>
+    <string name="usage_first_pickup">First pickup</string>
+    <string name="usage_by_hour">By hour</string>
+    <string name="usage_peak">Most use %1$s–%2$s (%3$s)</string>
+    <string name="usage_none_day">No app use recorded for this day.</string>
+    <string name="usage_social">Social media</string>
+    <string name="usage_social_total">%1$s · %2$d opens</string>
+    <string name="usage_social_none">No social media use this day.</string>
+    <string name="usage_all_apps">All apps</string>
+    <string name="usage_week_title">Last 7 days</string>
+    <string name="usage_week_average">About %1$s a day</string>
+    <string name="usage_longest">longest %1$s</string>
+    <string name="usage_last">last %1$s</string>
+    <string name="usage_footer">From Android\'s usage data, the same data Digital Wellbeing uses. Notifications show only on phones that share them with apps. Digital Wellbeing\'s own app timers, Focus mode and Bedtime aren\'t available to other apps.</string>
+    <plurals name="usage_opens">
+        <item quantity="one">%d open</item>
+        <item quantity="other">%d opens</item>
+    </plurals>
+    <plurals name="usage_notifications">
+        <item quantity="one">%d notification</item>
+        <item quantity="other">%d notifications</item>
+    </plurals>
+
     <string name="island_title">Your reel island</string>
-    <string name="island_detail">Floats at the top of the screen while you watch. Curious while the count is low, electric when you scroll too fast, angry at your limit.</string>
+    <string name="island_detail">Floats at the top of the screen while you use a supported app. After each reel it shows today\'s reel count, then your total time in that app today, which resets at midnight. Iris glides from happy to angry as your count nears the limit, gets electrocuted when you scroll fast and dozes off after 3 minutes without a reel, pleads when you skip the pause screen and turns sad after the anger at your limit. Drag her to move her; tap her to poke her.</string>
+    <string name="mood_happy">Happy</string>
     <string name="mood_curious">Curious</string>
+    <string name="mood_worried">Worried</string>
+    <string name="mood_sad">Sad</string>
+    <string name="mood_sleepy">Sleepy</string>
+    <string name="mood_surprised">Surprised</string>
+    <string name="mood_pleading">Pleading</string>
     <string name="mood_electric">Electric</string>
     <string name="mood_angry">Angry</string>
+
+    <plurals name="streak_days">
+        <item quantity="one">%d-day streak</item>
+        <item quantity="other">%d-day streak</item>
+    </plurals>
+    <string name="streak_detail">Days in a row under all your limits, including today so far. Best: %1$d.</string>
+    <string name="streak_broken">You reached a limit today, so the streak starts again tomorrow. Best: %1$d.</string>
+
+    <string name="widget_today_label">Reels today</string>
+    <string name="widget_today_description">Your reels, limit, time in reel apps, opens, top apps and streak for today.</string>
+    <string name="widget_eyes_description">Reel Counter eyes, showing today\'s mood</string>
+    <string name="widget_reels_today">reels today</string>
+    <string name="widget_of_limit">%1$d of %2$d reels</string>
+    <string name="widget_limit_reached">Limit reached</string>
+    <string name="widget_time_today">%1$s in reel apps today</string>
+    <string name="widget_opens_free">%1$d opens · %2$d free left</string>
+    <string name="widget_opens_paused">%1$d opens · next pause %2$d s</string>
+    <string name="widget_top_app">%1$s %2$d · %3$s</string>
+    <string name="widget_dashboard_label">Reel dashboard</string>
+    <string name="widget_dashboard_description">Today\'s summary, every app\'s reels and time against its limits, and the last 7 days.</string>
+    <string name="widget_week_description">Reels over the last 7 days</string>
+    <string name="widget_summary">%1$s in reel apps · %2$d opens today</string>
+    <string name="widget_app_stat">%1$s reels · %2$s</string>
+
+    <!-- Bottom bar and page titles -->
+    <string name="tab_today">Today</string>
+    <string name="tab_insights">Insights</string>
+    <string name="tab_settings">Settings</string>
+    <string name="settings_blocking">Blocking and pauses</string>
+    <string name="settings_permissions">Permissions</string>
+    <string name="limit_minus">5 fewer</string>
+    <string name="limit_plus">5 more</string>
+
+    <!-- Today hero: what Iris says at each mood (design copy) -->
+    <string name="of_reels">of %1$d reels</string>
+    <string name="says_calm">Fresh brain. Nice.</string>
+    <string name="says_curious">Halfway there.</string>
+    <string name="says_worried">Getting close.</string>
+    <string name="says_sad">Last few.</string>
+    <string name="says_angry">That\'s the limit for today.</string>
+    <string name="banner_counting_paused">Counting is paused. Accessibility is off.</string>
+    <string name="banner_fix">Fix</string>
+    <string name="by_app_hint">Tap an app to set its own limits.</string>
+    <plurals name="reels_today_short">
+        <item quantity="one">%d reel today</item>
+        <item quantity="other">%d reels today</item>
+    </plurals>
+
+    <string name="by_app_title">Reels by app</string>
+    <string name="by_app_detail">Each app can have its own daily limits on top of the overall one: reels per day, and minutes per day (the whole app is blocked when time runs out). Tap a limit to change it.</string>
+    <string name="app_time_today">%1$s today</string>
+    <string name="app_limit_none">No limit</string>
+    <string name="app_limit_reels_short">%1$d reels</string>
+    <string name="app_limit_time_short">%1$d min</string>
+    <string name="app_limit_reels_hint">Reels per day</string>
+    <string name="app_limit_time_hint">Minutes per day</string>
+    <string name="app_limits_title">%1$s limits</string>
+    <string name="app_limits_message">Leave a box empty for no limit. When the minutes run out, %1$s is blocked until midnight. The overall reel limit still applies.</string>
+    <string name="app_limits_clear">Remove limits</string>
+    <string name="time_warning">About %1$d min left on %2$s today.</string>
+    <string name="block_title_time">That\'s your %1$s time for today.</string>
+    <string name="block_message_time">You set %1$d min for %2$s.</string>
+    <string name="block_hint_time">%1$s opens again tomorrow. You can change its limit in Reel Counter.</string>
+    <string name="app_limit_value">Limit %1$d</string>
+    <string name="app_limit_title">%1$s daily limit</string>
+    <string name="app_limit_message">Reels allowed on %1$s each day. The overall limit still applies.</string>
+    <string name="app_limit_hint">For example 20</string>
+    <string name="app_limit_set">Set limit</string>
+
+    <string name="theme_label">Theme</string>
+    <string name="island_position">Island position</string>
+    <string name="island_up">Up</string>
+    <string name="island_down">Down</string>
+    <string name="island_offset_up">%1$d dp higher than just below the camera. Applies the next time the counter appears.</string>
+    <string name="island_offset_down">%1$d dp lower than just below the camera. Applies the next time the counter appears.</string>
+    <string name="island_offset_none">Just below the camera.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="limit_hint_total">Daily limit for all apps</string>
 
     <string name="last_7_days">Last 7 days</string>
     <string name="today">Today</string>
@@ -66,6 +182,11 @@
     <string name="settings">Settings</string>
     <string name="setting_block">Block Reels and Shorts when I reach my limit</string>
     <string name="setting_badge">Show the counter while I watch</string>
+    <string name="setting_reduce_motion">Reduce motion (Iris still changes mood, without wobbling)</string>
+    <string name="play_day">Play a full day</string>
+    <string name="counter_size_title">Counter size</string>
+    <string name="counter_size">Counter size: %1$d dp (the design\'s is 56). Applies the next time the counter appears.</string>
+    <string name="setting_widgets">Home-screen widgets (being redesigned; off hides them from the widget list)</string>
     <string name="setting_pause">Pause before opening social apps (after 5 opens a day)</string>
     <string name="limit_hint">Daily limit</string>
     <string name="limit_helper">Any number from 1 to 999. Changes apply right away.</string>
@@ -76,4 +197,82 @@
     <string name="reset">Reset</string>
 
     <string name="footer_note">A reel is counted each time you swipe to a new one. The first video you open in a session isn\'t counted until you swipe.</string>
+    <string name="pause_title_opens">Open #%1$d today.</string>
+    <string name="pause_take_breath">Take a breath. Still want %1$s?</string>
+    <string name="pause_countdown_seconds">%1$d s</string>
+    <string name="badge_limit">Limit reached</string>
+    <string name="badge_time_up">Time\'s up</string>
+    <string name="block_still_works">Feed and DMs still work.</string>
+    <string name="block_opens_tomorrow">%1$s opens again tomorrow.</string>
+    <string name="block_used_today">%1$s today</string>
+    <string name="block_back_to">Back to %1$s home</string>
+    <string name="block_got_it">Got it</string>
+    <string name="block_open_app">Go to Reel Counter</string>
+
+    <!-- Onboarding (design copy from reel-counter-onboarding.html) -->
+    <string name="onb_welcome_title">Hi, I\'m Iris.</string>
+    <string name="onb_welcome_text">I count your reels so you don\'t have to. Takes about 2 minutes.</string>
+    <string name="onb_lets_go">Let\'s go</string>
+    <string name="onb_next">Next</string>
+    <string name="onb_continue">Continue</string>
+    <string name="onb_skip">Skip</string>
+    <string name="onb_skip_for_now">Skip for now</string>
+    <string name="onb_not_now">Not now</string>
+    <string name="onb_later">Do it later</string>
+    <string name="onb_done">Done</string>
+    <string name="onb_guess_title">How many reels a day, honestly?</string>
+    <string name="onb_reels_a_day">reels a day</string>
+    <string name="onb_guess_light">Nice and light.</string>
+    <string name="onb_guess_normal">Pretty normal, honestly.</string>
+    <string name="onb_guess_lot">Hmm, that\'s a lot of thumbs.</string>
+    <string name="onb_guess_whoa">Whoa. Okay. No judgement.</string>
+    <string name="onb_which_apps">Which apps? (installed ones are ticked)</string>
+    <string name="onb_usage_title">Can I peek at yesterday?</string>
+    <string name="onb_usage_text">I\'ll read how long each app was open, from the same data as Digital Wellbeing.</string>
+    <string name="onb_usage_yes1">Minutes per app, unlocks, notifications</string>
+    <string name="onb_usage_no">Nothing you watch, type or send</string>
+    <string name="onb_usage_yes2">Stays on your phone</string>
+    <string name="onb_reveal_loading">Looking at yesterday…</string>
+    <string name="onb_reveal_title">%1$s on social apps yesterday.</string>
+    <string name="onb_reveal_text">At about 20 seconds a reel, that\'s around %1$d reels. About %2$d hours a week.</string>
+    <string name="onb_reveal_guess">Your guess: %1$d reels</string>
+    <string name="onb_reveal_real">Yesterday, roughly: %1$d reels</string>
+    <string name="onb_reveal_note">Most people guess low. That\'s why counting helps.</string>
+    <string name="onb_set_limit">Let\'s set a limit</string>
+    <string name="onb_hours_minutes">%1$d h %2$d min</string>
+    <string name="onb_limit_title">Let\'s start with %1$d a day.</string>
+    <string name="onb_limit_text">That\'s 30% under your guess. You can change it any time.</string>
+    <string name="onb_limit_text_skipped">That\'s 30% under your guess. You skipped the peek, so we went with it. You can change it any time.</string>
+    <string name="onb_sounds_good">Sounds good</string>
+    <string name="onb_a11y_title">Let Iris see when Reels are open.</string>
+    <string name="onb_a11y_text">To count and block reels, Reel Counter uses Android\'s Accessibility Service.</string>
+    <string name="onb_a11y_yes1">Which app and screen is open, and when you swipe</string>
+    <string name="onb_a11y_no">Your messages, comments or what the videos are</string>
+    <string name="onb_a11y_yes2">Everything stays on your phone. Nothing is uploaded.</string>
+    <string name="onb_a11y_agree">I agree that Reel Counter can use Accessibility for this.</string>
+    <string name="onb_open_settings">Open settings</string>
+    <string name="onb_notif_title">Want a live count in your shade?</string>
+    <string name="onb_notif_text">A quiet notification keeps today\'s count one swipe away. It also stops Android from putting Iris to sleep.</string>
+    <string name="onb_notif_sample">Instagram 5 · YouTube 4</string>
+    <string name="onb_allow_notif">Allow notifications</string>
+    <string name="onb_bg_title">One last thing for %1$s.</string>
+    <string name="onb_bg_text">%1$s phones close apps in the background to save battery. These 3 settings keep Iris awake.</string>
+    <string name="onb_bg_battery">Battery: set to Unrestricted</string>
+    <string name="onb_bg_autolaunch">Turn on Auto-launch</string>
+    <string name="onb_bg_lock">Lock Reel Counter in Recent apps</string>
+    <string name="onb_bg_lock_how">Open Recent apps, tap Reel Counter\'s ⋮ menu and choose Lock.</string>
+    <string name="onb_bg_note">Only shown on brands that need it.</string>
+    <string name="onb_bg_done">I\'ve done these</string>
+    <string name="onb_bg_item_open">Open</string>
+    <string name="onb_bg_item_done">Done</string>
+    <string name="onb_waiting_title">Counting is waiting on you.</string>
+    <string name="onb_waiting_text">You chose to turn on Accessibility later, so Iris can\'t count yet. Your limit and screen time are ready.</string>
+    <string name="onb_turn_on_now">Turn it on now</string>
+    <string name="onb_go_today">Go to Today</string>
+    <string name="onb_reel_title">Open Instagram and swipe one reel.</string>
+    <string name="onb_reel_text">Iris is watching for it. Come back here when you\'ve swiped.</string>
+    <string name="onb_reel_done_title">+1. I\'ve got you.</string>
+    <string name="onb_reel_done_text">That\'s how it works. Check the eyes line up with your camera.</string>
+    <string name="onb_island_up">Move island up</string>
+    <string name="onb_island_down">Move down</string>
 </resources>

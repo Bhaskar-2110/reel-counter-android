@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:navigationIconTint="@color/fg"
+        app:title="@string/usage_screen_title"
+        app:titleTextColor="@color/fg" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="24dp">
+
+            <!-- Day picker -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/prevDay"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/usage_prev_day"
+                    android:text="‹"
+                    android:textSize="22sp" />
+
+                <TextView
+                    android:id="@+id/dayLabel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:textColor="@color/fg"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/nextDay"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/usage_next_day"
+                    android:text="›"
+                    android:textSize="22sp" />
+            </LinearLayout>
+
+            <!-- Summary -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.ReelCounter.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.08"
+                        android:text="@string/usage_total_label"
+                        android:textAllCaps="true"
+                        android:textColor="@color/muted"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:id="@+id/totalTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFeatureSettings="tnum"
+                        android:textColor="@color/fg"
+                        android:textSize="34sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="horizontal">
+
+                        <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                            <TextView android:id="@+id/unlocks" style="@style/TextAppearance.ReelCounter.StatValue" />
+                            <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_unlocks" />
+                        </LinearLayout>
+
+                        <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                            <TextView android:id="@+id/notifications" style="@style/TextAppearance.ReelCounter.StatValue" />
+                            <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_notifications" />
+                        </LinearLayout>
+
+                        <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                            <TextView android:id="@+id/firstPickup" style="@style/TextAppearance.ReelCounter.StatValue" />
+                            <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_first_pickup" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- By hour -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.ReelCounter.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Section"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/usage_by_hour" />
+
+                    <TextView
+                        android:id="@+id/peakHour"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <com.bhaskar.reelcounter.BarsView
+                        android:id="@+id/hourChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="120dp"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Social apps -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.ReelCounter.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Section"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/usage_social" />
+
+                    <TextView
+                        android:id="@+id/socialTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:id="@+id/socialList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- All apps -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.ReelCounter.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Section"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/usage_all_apps" />
+
+                    <LinearLayout
+                        android:id="@+id/allList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Last 7 days -->
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.ReelCounter.Card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Section"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/usage_week_title" />
+
+                    <TextView
+                        android:id="@+id/weekAverage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <com.bhaskar.reelcounter.BarsView
+                        android:id="@+id/weekChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="140dp"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/usage_footer"
+                android:textColor="@color/muted"
+                android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

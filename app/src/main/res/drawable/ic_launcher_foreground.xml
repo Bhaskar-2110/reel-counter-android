@@ -1,16 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Reel Counter launcher icon, foreground layer: "Iris in the ring". 108dp canvas, art inside the 66dp safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- Upright video frame -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M40,32h28a6,6 0,0 1,6 6v32a6,6 0,0 1,-6 6h-28a6,6 0,0 1,-6 -6v-32a6,6 0,0 1,6 -6z M41,39v30h26v-30z" />
-    <!-- Play mark -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M50,46L61,54L50,62Z" />
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- ring track -->
+    <path android:pathData="M54,26 A28,28 0 1,1 54,82 A28,28 0 1,1 54,26" android:strokeColor="#1E2235" android:strokeWidth="6.5" android:fillColor="#00000000"/>
+    <!-- progress arc, 70% clockwise from 12 o'clock -->
+    <path android:pathData="M54,26 A28,28 0 1,1 54,82 A28,28 0 1,1 54,26" android:strokeWidth="6.5" android:strokeLineCap="round" android:fillColor="#00000000" android:trimPathStart="0" android:trimPathEnd="0.7">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear" android:startX="26" android:startY="26" android:endX="82" android:endY="82">
+                <item android:offset="0" android:color="#FF6CF0FF"/>
+                <item android:offset="0.6" android:color="#FF4FE3B0"/>
+                <item android:offset="1" android:color="#FF3FD3A1"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- eyes -->
+    <path android:fillColor="#F2F3F8" android:pathData="M43.0,43 H46.5 A6.5,6.5 0 0 1 53.0,49.5 V57.5 A6.5,6.5 0 0 1 46.5,64 H43.0 A6.5,6.5 0 0 1 36.5,57.5 V49.5 A6.5,6.5 0 0 1 43.0,43 Z M61.5,43 H65.0 A6.5,6.5 0 0 1 71.5,49.5 V57.5 A6.5,6.5 0 0 1 65.0,64 H61.5 A6.5,6.5 0 0 1 55,57.5 V49.5 A6.5,6.5 0 0 1 61.5,43 Z"/>
+    <path android:fillColor="#0B0D17" android:pathData="M46.0,50 H47.5 A4,4 0 0 1 51.5,54 V57.5 A4,4 0 0 1 47.5,61.5 H46.0 A4,4 0 0 1 42.0,57.5 V54 A4,4 0 0 1 46.0,50 Z M64.5,50 H66.0 A4,4 0 0 1 70.0,54 V57.5 A4,4 0 0 1 66.0,61.5 H64.5 A4,4 0 0 1 60.5,57.5 V54 A4,4 0 0 1 64.5,50 Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M46.099999999999994,53 A2.2,2.2 0 1 0 50.5,53 A2.2,2.2 0 1 0 46.099999999999994,53 Z M64.6,53 A2.2,2.2 0 1 0 69.0,53 A2.2,2.2 0 1 0 64.6,53 Z M43.4,58.6 A0.9,0.9 0 1 0 45.199999999999996,58.6 A0.9,0.9 0 1 0 43.4,58.6 Z M61.9,58.6 A0.9,0.9 0 1 0 63.699999999999996,58.6 A0.9,0.9 0 1 0 61.9,58.6 Z"/>
 </vector>
