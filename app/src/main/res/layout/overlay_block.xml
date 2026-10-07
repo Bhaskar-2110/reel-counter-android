@@ -1,68 +1,89 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Block screen (design: "Angry for 2 s, then it settles to sad. Red appears only here.").
+     Always Night, over any app. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/block_scrim"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    android:orientation="vertical"
+    android:paddingHorizontal="24dp"
+    android:paddingTop="48dp"
+    android:paddingBottom="32dp">
 
-    <LinearLayout
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <TextView
+        android:id="@+id/blockBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:background="@drawable/badge_angry"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:textColor="@color/night_angry"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <com.bhaskar.reelcounter.EyesView
+        android:id="@+id/blockEyes"
+        android:layout_width="170dp"
+        android:layout_height="170dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="28dp" />
+
+    <TextView
+        android:id="@+id/blockTitle"
+        style="@style/TextAppearance.ReelCounter.Big"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:textColor="@color/film_fg" />
+
+    <TextView
+        android:id="@+id/blockMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:textColor="@color/film_muted"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/blockHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:textColor="@color/night_faint"
+        android:textSize="12sp" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.4" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/blockClose"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="32dp">
+        android:backgroundTint="@color/night_calm"
+        android:textColor="@color/night_on_calm" />
 
-        <com.bhaskar.reelcounter.EyesView
-            android:id="@+id/blockEyes"
-            android:layout_width="200dp"
-            android:layout_height="110dp"
-            android:layout_marginBottom="16dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:letterSpacing="0.12"
-            android:text="@string/app_name"
-            android:textAllCaps="true"
-            android:textColor="@color/film_muted"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center"
-            android:text="@string/block_title"
-            android:textColor="@color/film_fg"
-            android:textSize="30sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/blockMessage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center"
-            android:textColor="@color/film_fg"
-            android:textSize="16sp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="@string/block_hint"
-            android:textColor="@color/film_muted"
-            android:textSize="14sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/blockClose"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:paddingHorizontal="32dp"
-            android:text="@string/close" />
-    </LinearLayout>
-</FrameLayout>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/blockOpenApp"
+        style="@style/Widget.ReelCounter.Button.Ghost"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/block_open_app"
+        android:textColor="@color/night_faint" />
+</LinearLayout>

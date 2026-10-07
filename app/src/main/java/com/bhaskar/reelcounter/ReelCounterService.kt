@@ -2,34 +2,48 @@ package com.bhaskar.reelcounter
 
 import android.accessibilityservice.AccessibilityService
 import android.animation.ValueAnimator
-import android.app.Dialog
-import android.graphics.Color
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
+import android.graphics.Point
 import android.graphics.Rect
+import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
+import androidx.core.view.isVisible
 import com.google.android.material.button.MaterialButton
 import java.time.LocalDate
+import kotlin.math.hypot
+import kotlin.math.roundToInt
 
 /**
- * Counts one reel each time a full-screen short-video feed settles on a new video, shows a
- * live counter badge over Reels/Shorts, pauses social app opens after the free ones, and
- * keeps the user out of social apps once the daily limit is reached.
+ * Counts one reel each time a full-screen short-video feed settles on a new video, shows the
+ * reel island (animated eyes with the count and a session timer) while a supported app is open,
+ * pauses social app opens after the free ones, and blocks Reels/Shorts once the overall or the
+ * app's own daily limit is reached.
  *
  * A single swipe fires many scroll events, so counting waits until scrolling has been quiet
  * for [SETTLE_MS], then compares the pager's item index with the last one counted. Scrolls in
@@ -47,13 +61,18 @@ class ReelCounterService : AccessibilityService() {
     private var lastCountAt = 0L
     private var lastBlockAt = 0L
 
-    private val recentSwipes = java.util.ArrayDeque<Long>()
-    private var electricUntil = 0L
     private var angryHoldUntil = 0L
+
+    /** Until when the counter should plead the next time it shows (elapsedRealtime). */
+    private var pleadUntil = 0L
+    private var sessionStart = 0L
+    private var timedPlatform: Platform? = null
+    private var timedSince = 0L
+    private var lastLength = -1
+    private var lastPosition = -1
 
     private lateinit var windowManager: WindowManager
     private var island: IslandView? = null
-    private var blurPane: Dialog? = null
     private var blockView: View? = null
     private var pauseView: View? = null
     private var pauseTick: Runnable? = null
@@ -68,10 +87,70 @@ class ReelCounterService : AccessibilityService() {
     }
     private val recheck = Runnable { checkScreen() }
 
+    /** With the screen off, the user isn't using the app: stop the timer and hide the island. */
+    private val screenOff = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = safely("screen off") {
+            stopTiming()
+            sessionStart = 0L
+            hideBadge()
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         KeepAliveService.start(this)
+        ContextCompat.registerReceiver(
+            this, screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+    }
+
+    // Time in each app today
+
+    private fun startTiming(platform: Platform) {
+        if (timedPlatform == platform) return
+        stopTiming()
+        timedPlatform = platform
+        timedSince = System.currentTimeMillis()
+    }
+
+    /** Saves the time since the last save; called on leaving and every [TIME_SAVE_MS] while in an app. */
+    private fun flushTime() {
+        val platform = timedPlatform ?: return
+        val now = System.currentTimeMillis()
+        CountStore.addAppTime(this, platform, timedSince, now)
+        timedSince = now
+    }
+
+    private fun stopTiming() {
+        flushTime()
+        timedPlatform = null
+    }
+
+    /** Today's total time in [platform], including the part not saved yet. */
+    private fun todayTimeMs(platform: Platform): Long =
+        CountStore.appTime(this, LocalDate.now(), platform) +
+            if (timedPlatform == platform) System.currentTimeMillis() - timedSince else 0L
+
+    /** How much of [platform]'s daily time limit is used (1 = used up), or 0 without a limit. */
+    private fun timeProgress(platform: Platform): Float {
+        val minutes = CountStore.appTimeLimitMinutes(this, platform)
+        return if (minutes <= 0) 0f else todayTimeMs(platform) / (minutes * 60_000f)
+    }
+
+    private val timeWarned = HashMap<Platform, LocalDate>()
+
+    /** Once a day per app, a buzz and a heads-up when 90% of its time limit is used. */
+    private fun warnNearTimeLimit(platform: Platform) {
+        val progress = timeProgress(platform)
+        val today = LocalDate.now()
+        if (progress < NEAR_LIMIT || progress >= 1f || timeWarned[platform] == today) return
+        timeWarned[platform] = today
+        val left = ((CountStore.appTimeLimitMinutes(this, platform) * 60_000L - todayTimeMs(platform)) / 60_000L)
+            .coerceAtLeast(1L).toInt()
+        vibrate(longArrayOf(0, 45, 90, 45))
+        Toast.makeText(this, getString(R.string.time_warning, left, platform.shortName), Toast.LENGTH_LONG).show()
+        pleadUntil = SystemClock.elapsedRealtime() + PLEAD_NEAR_TIME_MS
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -82,7 +161,7 @@ class ReelCounterService : AccessibilityService() {
     private fun handleEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
-        val platform = Platform.forPackage(pkg)
+        val platform = Platform.forPackage(pkg)?.takeIf { CountStore.isTracked(this, it) }
 
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) onForegroundChanged(pkg, platform)
 
@@ -94,7 +173,8 @@ class ReelCounterService : AccessibilityService() {
             }
 
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
-                if (platform == null || !isFullScreen(event.source)) return
+                // Apps tracked by their progress bar are counted in checkScreen instead.
+                if (platform == null || platform.progressBarId != null || !isFullScreen(event.source)) return
                 val index = event.fromIndex
                 pendingSwipe?.let { handler.removeCallbacks(it) }
                 val settle = Runnable { safely("swipe") { onSwipeSettled(platform, index) } }
@@ -107,29 +187,92 @@ class ReelCounterService : AccessibilityService() {
     private fun onSwipeSettled(platform: Platform, index: Int) {
         if (shortsPlatformOnScreen() != platform) return
         if (index >= 0 && lastIndex[platform] == index) return
+        lastIndex[platform] = index
+        countReel(platform)
+    }
+
+    /**
+     * For apps tracked by their progress bar (see [Platform.progressBarId]): reads "29 seconds
+     * of 59 seconds" from the bar and counts a new video when the length changes, or when
+     * playback jumps back to the start without the previous video having been near its end (that
+     * would just be the video looping). Only the numbers are read, so any language works.
+     */
+    private fun checkProgress(platform: Platform, root: AccessibilityNodeInfo) {
+        val id = platform.progressBarId ?: return
+        val bar = root.findAccessibilityNodeInfosByViewId(id).firstOrNull { it.isVisibleToUser } ?: return
+        val (position, length) = readProgress(bar) ?: return
+        val previousLength = lastLength
+        val previousPosition = lastPosition
+        lastLength = length
+        lastPosition = position
+        if (previousLength < 0) return
+        // The bar is only seen every second or two, so "near the end" (where a jump back to the
+        // start is just the video looping) is the last 15% or last 6 seconds, whichever is more.
+        val nearEnd = minOf(previousLength - 6f, previousLength * 0.85f)
+        val newVideo = length != previousLength ||
+            (position < previousPosition && position <= 2 && previousPosition < nearEnd)
+        if (newVideo) countReel(platform)
+    }
+
+    /** Position and length in seconds from the first description in [node]'s subtree that has them. */
+    private fun readProgress(node: AccessibilityNodeInfo, depth: Int = 0): Pair<Int, Int>? {
+        node.contentDescription?.toString()?.let { desc ->
+            val n = Regex("\\d+").findAll(desc).map { it.value.toInt() }.toList()
+            when (n.size) {
+                2 -> return n[0] to n[1]
+                4 -> return (n[0] * 60 + n[1]) to (n[2] * 60 + n[3])
+                6 -> return (n[0] * 3600 + n[1] * 60 + n[2]) to (n[3] * 3600 + n[4] * 60 + n[5])
+            }
+        }
+        if (depth > 4) return null
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child -> readProgress(child, depth + 1)?.let { return it } }
+        }
+        return null
+    }
+
+    /** Adds one reel for [platform] and reacts: eye moods, a buzz near the limit, blocking at it. */
+    private fun countReel(platform: Platform) {
         val now = SystemClock.elapsedRealtime()
         if (now - lastCountAt < MIN_GAP_MS) return
-
-        lastIndex[platform] = index
         lastCountAt = now
-        val total = CountStore.increment(this)
-        val limit = CountStore.limit(this)
-        if (!CountStore.blockAtLimit(this) && (total == limit || (total > limit && (total - limit) % 10 == 0))) {
-            Toast.makeText(this, getString(R.string.limit_toast, total, limit), Toast.LENGTH_LONG).show()
+        val before = CountStore.limitProgress(this, platform)
+        CountStore.increment(this, platform)
+        val after = CountStore.limitProgress(this, platform)
+        if (!CountStore.blockAtLimit(this) && before < 1f && after >= 1f) {
+            val total = CountStore.total(this, LocalDate.now())
+            Toast.makeText(this, getString(R.string.limit_toast, total, CountStore.limit(this)), Toast.LENGTH_LONG).show()
         }
 
-        // Fast scrolling (several reels within a few seconds) makes the eyes electric for a while.
-        recentSwipes.addLast(now)
-        while (recentSwipes.isNotEmpty() && now - recentSwipes.first() > FAST_WINDOW_MS) recentSwipes.removeFirst()
-        if (recentSwipes.size >= FAST_SWIPES) electricUntil = now + ELECTRIC_HOLD_MS
+        // Iris hops; she decides herself whether that was a surprise (a new band, the limit)
+        // or a binge (3 reels in 6 s: electrocuted).
+        island?.onReel(maxOf(after, timeProgress(platform)))
 
-        // Reaching the limit: let the island be angry for a moment before blocking.
-        if (total == limit && CountStore.blockAtLimit(this)) {
+        if (after >= 1f) CountStore.markLimitHit(this, LocalDate.now())
+
+        // Near the limit, every reel gives a short buzz; reaching it gives a long one.
+        when {
+            before < 1f && after >= 1f -> vibrate(longArrayOf(0, 350, 120, 350))
+            after >= NEAR_LIMIT -> vibrate(longArrayOf(0, 45, 90, 45))
+        }
+
+        // Reaching a limit: let the island be angry for a moment before blocking.
+        if (before < 1f && after >= 1f && CountStore.blockAtLimit(this)) {
             angryHoldUntil = now + ANGRY_HOLD_MS
             handler.removeCallbacks(recheck)
             handler.postDelayed(recheck, ANGRY_HOLD_MS + 50)
         }
         checkScreen()
+    }
+
+    private fun vibrate(pattern: LongArray) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as? Vibrator
+        }
+        vibrator?.vibrate(VibrationEffect.createWaveform(pattern, -1))
     }
 
     private fun queueScreenCheck() {
@@ -140,9 +283,6 @@ class ReelCounterService : AccessibilityService() {
             checkScreen()
         }, SCREEN_CHECK_MS)
     }
-
-    private fun isOverLimit(): Boolean =
-        CountStore.blockAtLimit(this) && CountStore.total(this, LocalDate.now()) >= CountStore.limit(this)
 
     // Opening a social app
 
@@ -158,19 +298,29 @@ class ReelCounterService : AccessibilityService() {
         foregroundPkg = pkg
         if (platform == null) {
             hidePauseScreen()
+            sessionStart = 0L
+            stopTiming()
             return
         }
         if (previous == pkg) return
+        sessionStart = SystemClock.elapsedRealtime()
+        startTiming(platform)
+
+        // Time limit used up: the whole app stays closed until midnight.
+        if (timeProgress(platform) >= 1f) {
+            block(platform, timeUp = true)
+            return
+        }
 
         // Over the limit, apps that are nothing but short videos stay closed. Other apps open
         // normally; only their Reels/Shorts/Spotlight screen is blocked (see checkScreen).
-        if (isOverLimit() && platform.isWholeApp) {
+        if (CountStore.isOverLimit(this, platform) && platform.isWholeApp) {
             block(platform)
             return
         }
         val opens = CountStore.incrementOpens(this)
         val seconds = CountStore.pauseSecondsFor(opens)
-        if (seconds > 0 && CountStore.pauseOnOpen(this)) showPauseScreen(opens, seconds)
+        if (seconds > 0 && CountStore.pauseOnOpen(this)) showPauseScreen(opens, seconds, platform)
     }
 
     private fun isKeyboard(pkg: String): Boolean {
@@ -178,14 +328,21 @@ class ReelCounterService : AccessibilityService() {
         return imm.enabledInputMethodList.any { it.packageName == pkg }
     }
 
-    private fun showPauseScreen(opens: Int, seconds: Int) {
+    /**
+     * The pause before opening, as in the design: Iris pleading inside a slowly turning ring,
+     * "Open #7 today.", a big Close app button and a quiet Continue anyway that unlocks after
+     * the countdown.
+     */
+    private fun showPauseScreen(opens: Int, seconds: Int, platform: Platform) {
         hidePauseScreen()
         hideBadge()
         val themed = ContextThemeWrapper(this, R.style.Theme_ReelCounter)
         val view = LayoutInflater.from(themed).inflate(R.layout.overlay_pause, null)
         val countdown = view.findViewById<TextView>(R.id.pauseCountdown)
         val continueButton = view.findViewById<MaterialButton>(R.id.pauseContinue)
-        view.findViewById<TextView>(R.id.pauseMessage).text = getString(R.string.pause_message, opens)
+        view.findViewById<TextView>(R.id.pauseTitle).text = getString(R.string.pause_title_opens, opens)
+        view.findViewById<TextView>(R.id.pauseMessage).text = getString(R.string.pause_take_breath, platform.shortName)
+        view.findViewById<EyesView>(R.id.pauseEyes).setMood(Mood.PLEADING)
         view.findViewById<View>(R.id.pauseLeave).setOnClickListener {
             hidePauseScreen()
             performGlobalAction(GLOBAL_ACTION_HOME)
@@ -193,6 +350,8 @@ class ReelCounterService : AccessibilityService() {
         continueButton.isEnabled = false
         continueButton.setOnClickListener {
             hidePauseScreen()
+            // The counter comes back pleading: "are you sure?"
+            pleadUntil = SystemClock.elapsedRealtime() + PLEAD_AFTER_PAUSE_MS
             queueScreenCheck()
         }
 
@@ -200,7 +359,7 @@ class ReelCounterService : AccessibilityService() {
         val tick = object : Runnable {
             override fun run() {
                 if (left > 0) {
-                    countdown.text = left.toString()
+                    countdown.text = getString(R.string.pause_countdown_seconds, left)
                     continueButton.text = getString(R.string.pause_continue_in, left)
                     left--
                     handler.postDelayed(this, 1000)
@@ -226,29 +385,36 @@ class ReelCounterService : AccessibilityService() {
 
     // What's on screen
 
-    /** Blocks over the limit, otherwise shows the badge while a short-video feed is on screen. */
+    /**
+     * Shows the island while a supported app is in front, and blocks its Reels/Shorts screen
+     * once a limit is reached (after a moment of angry eyes when the limit was just hit).
+     */
     private fun checkScreen() = safely("check") {
         if (pauseView != null) {
             hideBadge()
             return@safely
         }
         val root = rootInActiveWindow
-        val front = root?.packageName?.toString()?.let(Platform::forPackage)
+        val front = root?.packageName?.toString()?.let(Platform::forPackage)?.takeIf { CountStore.isTracked(this, it) }
         if (root == null || front == null) {
             hideBadge()
             return@safely
         }
-        if (!isShortsScreen(front, root)) {
-            hideBadge()
+        if (sessionStart == 0L) sessionStart = SystemClock.elapsedRealtime()
+        startTiming(front)
+        if (System.currentTimeMillis() - timedSince > TIME_SAVE_MS) flushTime()
+        if (timeProgress(front) >= 1f) {
+            block(front, timeUp = true)
             return@safely
         }
-        val total = CountStore.total(this, LocalDate.now())
-        val limit = CountStore.limit(this)
+        warnNearTimeLimit(front)
+        val onShorts = isShortsScreen(front, root)
+        if (onShorts) checkProgress(front, root) else lastLength = -1
+        val overLimit = CountStore.isOverLimit(this, front)
+        val angryHold = island != null && SystemClock.elapsedRealtime() < angryHoldUntil
         when {
-            // Over the limit on Reels/Shorts: stay angry for a moment, then send the user out.
-            isOverLimit() && island != null && SystemClock.elapsedRealtime() < angryHoldUntil -> showIsland(total, limit)
-            isOverLimit() -> block(front)
-            CountStore.showBadge(this) -> showIsland(total, limit)
+            overLimit && !angryHold && onShorts -> block(front)
+            CountStore.showBadge(this) -> showIsland(front)
             else -> hideBadge()
         }
     }
@@ -302,11 +468,12 @@ class ReelCounterService : AccessibilityService() {
     // Blocking
 
     /**
-     * Takes the user out of the short-video screen and shows the limit message. Back leaves
-     * Reels/Shorts/Spotlight but keeps the rest of the app; apps that are only short videos
-     * go to the home screen.
+     * Takes the user out and shows the limit message. For a reel limit, Back leaves
+     * Reels/Shorts/Spotlight but keeps the rest of the app (apps that are only short videos go to
+     * the home screen). When [timeUp], the app's daily time limit is used up, so the whole app is
+     * left for the home screen.
      */
-    private fun block(platform: Platform) {
+    private fun block(platform: Platform, timeUp: Boolean = false) {
         hideBadge()
         hidePauseScreen()
         val now = SystemClock.elapsedRealtime()
@@ -317,141 +484,238 @@ class ReelCounterService : AccessibilityService() {
             return
         }
         lastBlockAt = now
-        performGlobalAction(if (platform.isWholeApp) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK)
-        showBlockScreen(CountStore.total(this, LocalDate.now()), CountStore.limit(this))
+        if (timeUp) CountStore.markLimitHit(this, LocalDate.now())
+        performGlobalAction(if (timeUp || platform.isWholeApp) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK)
+        showBlockScreen(platform, timeUp)
         handler.removeCallbacks(recheck)
         handler.postDelayed(recheck, BLOCK_GAP_MS)
     }
 
-    private fun showBlockScreen(total: Int, limit: Int) {
+    /**
+     * The block screen, as in the design: a badge, Iris (angry for 2 s, then sad), a headline
+     * naming the limit, and a big button back to the app's home (or just "Got it" when the whole
+     * app is closed). Blocks the user chose themselves (Done for today, Focus) get a calm badge
+     * and a happy Iris instead.
+     */
+    private fun showBlockScreen(platform: Platform, timeUp: Boolean) {
         val view = blockView ?: run {
             val themed = ContextThemeWrapper(this, R.style.Theme_ReelCounter)
             val v = LayoutInflater.from(themed).inflate(R.layout.overlay_block, null)
             v.findViewById<View>(R.id.blockClose).setOnClickListener { hideBlockScreen() }
-            v.findViewById<EyesView>(R.id.blockEyes).setMood(Mood.ANGRY)
+            v.findViewById<View>(R.id.blockOpenApp).setOnClickListener {
+                hideBlockScreen()
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
             windowManager.addView(v, fullScreenParams())
             blockView = v
             v
         }
-        view.findViewById<TextView>(R.id.blockMessage).text = getString(R.string.block_message, total, limit)
+        val today = LocalDate.now()
+        val own = CountStore.appLimit(this, platform)
+        val appCount = CountStore.appCount(this, today, platform)
+        val appClosed = timeUp || platform.isWholeApp
+
+        val eyes = view.findViewById<EyesView>(R.id.blockEyes)
+        handler.removeCallbacks(settleToSad)
+        eyes.setMood(Mood.ANGRY)
+        settleEyes = eyes
+        handler.postDelayed(settleToSad, ANGRY_HOLD_MS + 200)
+
+        view.findViewById<TextView>(R.id.blockBadge).setText(if (timeUp) R.string.badge_time_up else R.string.badge_limit)
+        view.findViewById<TextView>(R.id.blockTitle).text =
+            if (timeUp) getString(R.string.block_title_time, platform.shortName) else getString(R.string.block_title)
+        val stillWorks = if (appClosed) getString(R.string.block_opens_tomorrow, platform.shortName) else getString(R.string.block_still_works)
+        view.findViewById<TextView>(R.id.blockMessage).text = when {
+            timeUp -> getString(R.string.block_message_time, CountStore.appTimeLimitMinutes(this, platform), platform.shortName) +
+                " " + stillWorks
+            own > 0 && appCount >= own -> getString(R.string.block_message_app, own, platform.shortName) + " " + stillWorks
+            else -> getString(R.string.block_message, CountStore.limit(this)) + " " + stillWorks
+        }
+        view.findViewById<TextView>(R.id.blockHint).apply {
+            text = if (timeUp) getString(R.string.block_used_today, formatMinutes(todayTimeMs(platform))) else ""
+            isVisible = text.isNotEmpty()
+        }
+        view.findViewById<MaterialButton>(R.id.blockClose).text =
+            if (appClosed) getString(R.string.block_got_it) else getString(R.string.block_back_to, platform.shortName)
+    }
+
+    private var settleEyes: EyesView? = null
+
+    /** After the angry moment, Iris settles to sad. */
+    private val settleToSad = Runnable { settleEyes?.setMood(Mood.SAD) }
+
+    private fun formatMinutes(ms: Long): String {
+        val minutes = ms / 60_000
+        return if (minutes < 60) getString(R.string.duration_minutes, minutes.toInt())
+        else getString(R.string.duration_hours, (minutes / 60).toInt(), (minutes % 60).toInt())
     }
 
     private fun hideBlockScreen() {
+        handler.removeCallbacks(settleToSad)
+        settleEyes = null
         blockView?.let { removeOverlay(it) }
         blockView = null
     }
 
     // Dynamic island
 
-    private fun showIsland(total: Int, limit: Int) {
+    private fun showIsland(platform: Platform) {
         val view = island ?: createIsland().also {
             island = it
             handler.postDelayed(pollWhileVisible, POLL_MS)
         }
-        val mood = when {
-            total >= limit -> Mood.ANGRY
-            SystemClock.elapsedRealtime() < electricUntil -> Mood.ELECTRIC
-            else -> Mood.CURIOUS
+        val now = SystemClock.elapsedRealtime()
+        val progress = maxOf(CountStore.limitProgress(this, platform), timeProgress(platform))
+        // The timer shows today's total time in this app; it carries on across visits and
+        // starts again from zero at midnight.
+        view.setState(CountStore.total(this, LocalDate.now()), now - todayTimeMs(platform), progress)
+        if (pleadUntil > now) {
+            view.plead((pleadUntil - now) / 1000f)
+            pleadUntil = 0L
         }
-        view.setState(total, mood, total.toFloat() / limit)
+        // In a reel app but no reel for a while: Iris dozes off until the next one.
+        val active = maxOf(lastCountAt, sessionStart)
+        view.sleepy = active > 0L && now - active > SLEEPY_AFTER_MS
     }
 
     /**
-     * Adds the island's overlay window at the very top edge of the screen. With a centered
-     * camera hole, the circle drops just enough for the eyes to sit below the camera, which
-     * then reads as the circle's forehead. Where Android supports it, a blur window goes in
-     * first, right behind the circle, so the video under the glass is frosted.
+     * Adds the island's overlay window: Iris's face from the design, docked just below
+     * the camera. The user can drag it anywhere; it stays where it's dropped, and snaps back
+     * under the camera when dropped near there.
+     *
+     * The window is only as big as the face plus room for its glow and movement, because it
+     * takes touches: anything it covers can't be tapped in the app below.
      */
     private fun createIsland(): IslandView {
         val dp = resources.displayMetrics.density
-        val size = IslandView.BASE_D_DP * dp
-        var centerY = 4 * dp + size / 2f
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val metrics = windowManager.currentWindowMetrics
-            val screenW = metrics.bounds.width()
-            metrics.windowInsets.displayCutout?.boundingRects
-                ?.firstOrNull { it.top < 80 * dp && kotlin.math.abs(it.exactCenterX() - screenW / 2f) < screenW * 0.15f }
-                ?.let { camera ->
-                    // Eyes are drawn 6% of the size above center and are 25% of it tall.
-                    val eyesTop = centerY - size * 0.06f - size * 0.125f
-                    val needed = camera.bottom + 3 * dp - eyesTop
-                    if (needed > 0) centerY += needed
-                }
-        }
-        val top = centerY - size / 2f
+        // Room for the glow and movement grows with the face.
+        val sizeDp = CountStore.counterSizeDp(this)
+        val pad = ISLAND_PAD_DP * dp * sizeDp / CountStore.COUNTER_SIZE_DEFAULT
+        val size = sizeDp * dp
+        val win = (size + 2 * pad).roundToInt()
 
-        val blurred = showBlurPane(top.toInt())
-        val view = IslandView(this, centerY).apply { frosted = blurred }
+        val screen = screenSize()
+        val camera = topCamera()
+        val dockCenterX = camera?.centerX() ?: (screen.x / 2f)
+        val dockTop = (camera?.bottom ?: (FALLBACK_TOP_DP * dp)) + CAMERA_GAP_DP * dp + CountStore.islandOffsetDp(this) * dp
+        val dock = Point((dockCenterX - win / 2f).roundToInt(), (dockTop - pad).roundToInt())
+        // Keep the face itself on screen; only its spare room may hang off the edges.
+        val padPx = pad.toInt()
+        fun clampX(x: Int) = x.coerceIn(-padPx, screen.x - win + padPx)
+        fun clampY(y: Int) = y.coerceIn(minOf(dock.y, -padPx), screen.y - win + padPx)
+
+        val view = IslandView(this, pad)
         val params = WindowManager.LayoutParams(
-            (320 * dp).toInt(),
-            (centerY + size / 2f + 50 * dp).toInt(),
+            win,
+            win,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            OVERLAY_FLAGS,
+            ISLAND_FLAGS,
             PixelFormat.TRANSLUCENT,
         ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = 0
+            gravity = Gravity.TOP or Gravity.START
+            val saved = CountStore.islandPosition(this@ReelCounterService)
+            x = saved?.let { clampX(it.x) } ?: dock.x
+            y = saved?.let { clampY(it.y) } ?: dock.y
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
+        }
+
+        val slop = ViewConfiguration.get(this).scaledTouchSlop
+        val snap = ISLAND_SNAP_DP * dp
+        var downX = 0f
+        var downY = 0f
+        var startX = 0
+        var startY = 0
+        var dragging = false
+        fun moveTo(x: Int, y: Int) {
+            params.x = x
+            params.y = y
+            if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
+        }
+        view.setOnTouchListener { v, e ->
+            // Iris watches the finger on her, as in the demo.
+            if (e.actionMasked == MotionEvent.ACTION_DOWN || e.actionMasked == MotionEvent.ACTION_MOVE) view.watch(e.rawX, e.rawY)
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = e.rawX
+                    downY = e.rawY
+                    startX = params.x
+                    startY = params.y
+                    dragging = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = e.rawX - downX
+                    val dy = e.rawY - downY
+                    if (!dragging && hypot(dx, dy) > slop) dragging = true
+                    if (dragging) {
+                        val oldX = params.x
+                        val oldY = params.y
+                        moveTo(clampX(startX + dx.roundToInt()), clampY(startY + dy.roundToInt()))
+                        view.dragBy((params.x - oldX).toFloat(), (params.y - oldY).toFloat())
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (dragging) {
+                        view.release()
+                        if (hypot((params.x - dock.x).toFloat(), (params.y - dock.y).toFloat()) < snap) {
+                            // Dropped near its spot: glide back under the camera.
+                            val fromX = params.x
+                            val fromY = params.y
+                            ValueAnimator.ofFloat(0f, 1f).apply {
+                                duration = 220
+                                interpolator = DecelerateInterpolator()
+                                addUpdateListener {
+                                    val t = it.animatedFraction
+                                    moveTo(fromX + ((dock.x - fromX) * t).roundToInt(), fromY + ((dock.y - fromY) * t).roundToInt())
+                                }
+                                start()
+                            }
+                            CountStore.setIslandPosition(this, null)
+                        } else {
+                            CountStore.setIslandPosition(this, Point(params.x, params.y))
+                        }
+                    } else if (e.actionMasked == MotionEvent.ACTION_UP) {
+                        view.poke(e.x, e.y)
+                        v.performClick()
+                    }
+                }
+            }
+            true
         }
         windowManager.addView(view, params)
         return view
     }
 
-    /**
-     * Shows a round window that blurs whatever is behind it (Android 12+, when the phone has
-     * window blur turned on). Its blur fades in as the island grows. Returns false when blur
-     * isn't available.
-     */
-    private fun showBlurPane(top: Int): Boolean {
-        hideBlurPane()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !windowManager.isCrossWindowBlurEnabled) return false
-        val dp = resources.displayMetrics.density
-        val w = (IslandView.BASE_D_DP * dp).toInt()
-        val h = w
-        val dialog = Dialog(this, R.style.Theme_ReelCounter_BlurPane)
-        dialog.setContentView(View(this))
-        val window = dialog.window ?: return false
-        window.setType(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY)
-        window.addFlags(OVERLAY_FLAGS)
-        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        // The blur takes its rounded shape from this background's corners.
-        window.setBackgroundDrawable(GradientDrawable().apply {
-            cornerRadius = h / 2f
-            setColor(Color.TRANSPARENT)
-        })
-        window.setLayout(w, h)
-        window.setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-        window.attributes = window.attributes.apply {
-            y = top
-            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+    /** The full screen size in pixels, including the status and navigation bars. */
+    private fun screenSize(): Point =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowManager.currentWindowMetrics.bounds.let { Point(it.width(), it.height()) }
+        } else {
+            @Suppress("DEPRECATION")
+            Point().also { windowManager.defaultDisplay.getRealSize(it) }
         }
-        window.setBackgroundBlurRadius(0)
-        return try {
-            dialog.show()
-            blurPane = dialog
-            ValueAnimator.ofInt(0, (25 * dp).toInt()).apply {
-                startDelay = 120
-                duration = 350
-                addUpdateListener { if (blurPane === dialog) window.setBackgroundBlurRadius(it.animatedValue as Int) }
-                start()
-            }
-            true
-        } catch (e: Exception) {
-            Log.w(TAG, "Couldn't show blur", e)
-            false
-        }
-    }
 
-    private fun hideBlurPane() {
-        val pane = blurPane ?: return
-        blurPane = null
-        try {
-            pane.dismiss()
-        } catch (e: Exception) {
-            // Already gone.
+    /**
+     * The camera hole at the top of the screen, in screen pixels, or null without one. Uses the
+     * cutout's exact shape where Android provides it (12+); older versions only give a
+     * bounding box, which can be wider than the hole itself.
+     */
+    private fun topCamera(): RectF? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val metrics = windowManager.currentWindowMetrics
+        val cutout = metrics.windowInsets.displayCutout ?: return null
+        val box = cutout.boundingRects.firstOrNull {
+            it.top < 80 * resources.displayMetrics.density
+        } ?: return null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            cutout.cutoutPath?.let { path ->
+                val exact = RectF()
+                path.computeBounds(exact, true)
+                if (!exact.isEmpty && RectF.intersects(exact, RectF(box))) return exact
+            }
         }
+        return RectF(box)
     }
 
     /** Animates the island back into a dot, then removes its window. */
@@ -459,7 +723,6 @@ class ReelCounterService : AccessibilityService() {
         handler.removeCallbacks(pollWhileVisible)
         val leaving = island ?: return
         island = null
-        hideBlurPane()
         leaving.dismiss { removeOverlay(leaving) }
     }
 
@@ -492,9 +755,14 @@ class ReelCounterService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
+        stopTiming()
+        try {
+            unregisterReceiver(screenOff)
+        } catch (e: IllegalArgumentException) {
+            // Never registered.
+        }
         handler.removeCallbacksAndMessages(null)
         hideBadge()
-        hideBlurPane()
         hideBlockScreen()
         hidePauseScreen()
         super.onDestroy()
@@ -504,11 +772,30 @@ class ReelCounterService : AccessibilityService() {
         const val TAG = "ReelCounterService"
         const val SYSTEM_UI = "com.android.systemui"
 
-        /** Island windows: never take touches or focus, and may sit in the status bar area. */
-        const val OVERLAY_FLAGS = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+        /**
+         * The island's window: takes touches only on itself so it can be dragged (everything
+         * outside it still reaches the app), never takes focus, and may sit in the status bar area.
+         */
+        const val ISLAND_FLAGS = WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED or
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+
+        /**
+         * Room around the face in its window for its glow and movement. The spec says 16dp;
+         * a little more keeps the glow from being cut off at the top of a hop or a stretch.
+         */
+        const val ISLAND_PAD_DP = 20
+
+        /** Space between the bottom of the camera hole and the top of the face. */
+        const val CAMERA_GAP_DP = 6
+
+        /** Top of the face on phones without a camera hole (below the status bar icons). */
+        const val FALLBACK_TOP_DP = 30
+
+        /** Dropped within this distance of its spot under the camera, the face docks back there. */
+        const val ISLAND_SNAP_DP = 48
 
         /** Windows that appear on top of an app without the user leaving it. */
         val PASS_THROUGH_PACKAGES = setOf(
@@ -526,9 +813,19 @@ class ReelCounterService : AccessibilityService() {
         const val POLL_MS = 1500L
         const val BLOCK_GAP_MS = 1500L
         const val MAX_NODES_SCANNED = 600
-        const val FAST_SWIPES = 3
-        const val FAST_WINDOW_MS = 6000L
-        const val ELECTRIC_HOLD_MS = 3000L
-        const val ANGRY_HOLD_MS = 1800L
+
+        /** At the limit, time for Iris's surprise, huff and anger before the block screen. */
+        const val ANGRY_HOLD_MS = 2200L
+        const val TIME_SAVE_MS = 30_000L
+
+        /** From this share of a limit on, every reel gives a short buzz. */
+        const val NEAR_LIMIT = 0.9f
+
+        /** After this long in a reel app without a reel, Iris dozes off (the spec's 15 min hardly ever showed). */
+        const val SLEEPY_AFTER_MS = 3 * 60 * 1000L
+
+        /** How long the counter pleads after "Continue anyway", and near an app's time limit. */
+        const val PLEAD_AFTER_PAUSE_MS = 5000L
+        const val PLEAD_NEAR_TIME_MS = 4000L
     }
 }

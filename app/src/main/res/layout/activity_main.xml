@@ -1,352 +1,359 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Main screen, laid out like design_docs/reel-counter-mockups.html: three pages (Today,
+     Insights, Settings) switched by the bottom bar, whose active tab has a mood-coloured bar. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="20dp">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
-        <!-- Header -->
-        <LinearLayout
+        <!-- ───────────────────────── Today ───────────────────────── -->
+        <ScrollView
+            android:id="@+id/pageToday"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="true"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/app_name"
-                android:textColor="@color/fg"
-                android:textSize="26sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/dateText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:letterSpacing="0.06"
-                android:textAllCaps="true"
-                android:textColor="@color/muted"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <!-- Service status -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp">
+            android:layout_height="match_parent">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:paddingHorizontal="18dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="24dp">
 
-                <TextView
-                    android:id="@+id/statusText"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/fg"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/statusDetail"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:id="@+id/dateText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/faint"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/app_name"
+                        android:textColor="@color/faint"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Shown when counting can't work yet (Accessibility off) -->
+                <LinearLayout
+                    android:id="@+id/banner"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textColor="@color/muted"
-                    android:textSize="13sp" />
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/banner_worried"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingVertical="8dp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="6dp"
+                    android:visibility="gone">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/enableButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="@string/enable_button" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                    <TextView
+                        android:id="@+id/bannerText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/fg"
+                        android:textSize="13sp" />
 
-        <!-- Background running -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/batteryCard"
-            style="@style/Widget.ReelCounter.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/bannerFix"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minHeight="40dp"
+                        android:paddingHorizontal="14dp"
+                        android:text="@string/banner_fix"
+                        android:textSize="13sp" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                <!-- Hero: Iris inside the progress ring, the count, and what Iris says -->
+                <FrameLayout
+                    android:layout_width="260dp"
+                    android:layout_height="260dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="12dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/battery_title"
-                    android:textColor="@color/fg"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    <com.bhaskar.reelcounter.RingView
+                        android:id="@+id/ring"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/battery_detail"
-                    android:textColor="@color/muted"
-                    android:textSize="13sp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/batteryButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="@string/battery_button" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Today's count -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:cardBackgroundColor="@color/film"
-            app:strokeWidth="0dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:orientation="vertical"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="24dp">
-
-                <com.bhaskar.reelcounter.EyesView
-                    android:id="@+id/mainEyes"
-                    android:layout_width="140dp"
-                    android:layout_height="76dp"
-                    android:layout_marginBottom="8dp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:letterSpacing="0.12"
-                    android:text="@string/reels_today"
-                    android:textAllCaps="true"
-                    android:textColor="@color/film_muted"
-                    android:textSize="11sp" />
+                    <com.bhaskar.reelcounter.EyesView
+                        android:id="@+id/mainEyes"
+                        android:layout_width="222dp"
+                        android:layout_height="222dp"
+                        android:layout_gravity="center" />
+                </FrameLayout>
 
                 <TextView
                     android:id="@+id/todayCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="@font/bricolage_grotesque"
                     android:fontFeatureSettings="tnum"
                     android:includeFontPadding="false"
                     android:text="0"
-                    android:textColor="@color/film_fg"
-                    android:textSize="96sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Island preview -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                    android:textSize="68sp" />
 
                 <TextView
-                    style="@style/TextAppearance.ReelCounter.Section"
+                    android:id="@+id/ofText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/island_title" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/island_detail"
+                    android:layout_gravity="center_horizontal"
                     android:textColor="@color/muted"
                     android:textSize="13sp" />
 
-                <com.bhaskar.reelcounter.IslandView
-                    android:id="@+id/islandPreview"
-                    android:layout_width="match_parent"
-                    android:layout_height="96dp"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/island_wallpaper" />
-
-                <com.google.android.material.button.MaterialButtonToggleGroup
-                    android:id="@+id/moodToggle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    app:checkedButton="@+id/moodCurious"
-                    app:selectionRequired="true"
-                    app:singleSelection="true">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/moodCurious"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/mood_curious" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/moodElectric"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/mood_electric" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/moodAngry"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/mood_angry" />
-                </com.google.android.material.button.MaterialButtonToggleGroup>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Daily limit -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
                 <TextView
-                    style="@style/TextAppearance.ReelCounter.Section"
+                    android:id="@+id/saysText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/daily_limit" />
-
-                <com.google.android.material.progressindicator.LinearProgressIndicator
-                    android:id="@+id/limitProgress"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    app:trackColor="@color/line"
-                    app:trackCornerRadius="6dp"
-                    app:trackThickness="10dp" />
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="@font/bricolage_grotesque"
+                    android:fontVariationSettings="'wght' 600"
+                    android:gravity="center"
+                    android:textColor="@color/fg"
+                    android:textSize="16sp" />
 
                 <TextView
                     android:id="@+id/limitText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:fontFeatureSettings="tnum"
-                    android:textColor="@color/muted"
-                    android:textSize="13sp" />
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="2dp"
+                    android:gravity="center"
+                    android:textColor="@color/faint"
+                    android:textSize="12sp" />
+
+                <!-- Reels by app -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="12dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/by_app_title" />
+
+                    <LinearLayout
+                        android:id="@+id/appRows"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/by_app_hint"
+                        android:textColor="@color/faint"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Streak -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/surface_rounded"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:id="@+id/streakIcon"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="12dp"
+                        android:importantForAccessibility="no"
+                        android:text="🔥"
+                        android:textSize="28sp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/streakTitle"
+                            style="@style/TextAppearance.ReelCounter.Section"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFeatureSettings="tnum" />
+
+                        <TextView
+                            android:id="@+id/streakDetail"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textColor="@color/muted"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/opensText"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="12dp"
                     android:fontFeatureSettings="tnum"
-                    android:textColor="@color/muted"
-                    android:textSize="13sp" />
+                    android:gravity="center"
+                    android:textColor="@color/faint"
+                    android:textSize="12sp" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </ScrollView>
 
-        <!-- Social media screen time (Android usage data) -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
+        <!-- ───────────────────────── Insights ───────────────────────── -->
+        <ScrollView
+            android:id="@+id/pageInsights"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
+            android:layout_height="match_parent"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:paddingHorizontal="18dp"
+                android:paddingTop="18dp"
+                android:paddingBottom="24dp">
 
                 <TextView
-                    style="@style/TextAppearance.ReelCounter.Section"
+                    style="@style/TextAppearance.ReelCounter.Big"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/usage_title" />
+                    android:text="@string/tab_insights" />
 
-                <TextView
-                    android:id="@+id/usageAccessHint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/usage_access_hint"
-                    android:textColor="@color/muted"
-                    android:textSize="13sp" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/usageAccessButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="@string/usage_access_button" />
-
+                <!-- Social media screen time -->
                 <LinearLayout
-                    android:id="@+id/usageContent"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
                     <TextView
-                        android:id="@+id/usageTotal"
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:fontFeatureSettings="tnum"
-                        android:textColor="@color/fg"
-                        android:textSize="28sp"
-                        android:textStyle="bold" />
+                        android:text="@string/usage_title" />
 
                     <TextView
-                        android:id="@+id/usageOpensTotal"
+                        android:id="@+id/usageAccessHint"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:fontFeatureSettings="tnum"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/usage_access_hint"
                         android:textColor="@color/muted"
                         android:textSize="13sp" />
 
-                    <LinearLayout
-                        android:id="@+id/usageList"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/usageAccessButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
+                        android:layout_marginTop="12dp"
+                        android:text="@string/usage_access_button" />
+
+                    <LinearLayout
+                        android:id="@+id/usageContent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/usageTotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:fontFamily="@font/bricolage_grotesque"
+                            android:fontFeatureSettings="tnum"
+                            android:fontVariationSettings="'wght' 750"
+                            android:textColor="@color/fg"
+                            android:textSize="32sp" />
+
+                        <TextView
+                            android:id="@+id/usageOpensTotal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFeatureSettings="tnum"
+                            android:textColor="@color/muted"
+                            android:textSize="13sp" />
+
+                        <LinearLayout
+                            android:id="@+id/usageList"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:orientation="vertical" />
+
+                        <TextView
+                            android:id="@+id/usageWeek"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:fontFeatureSettings="tnum"
+                            android:textColor="@color/faint"
+                            android:textSize="12sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/usageDetailsButton"
+                            style="@style/Widget.ReelCounter.Button.Outline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:text="@string/usage_see_all" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Last 7 days of reels -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
                     <TextView
-                        android:id="@+id/usageWeek"
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/last_7_days" />
+
+                    <com.bhaskar.reelcounter.WeekChartView
+                        android:id="@+id/weekChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="160dp"
+                        android:layout_marginTop="8dp" />
+
+                    <TextView
+                        android:id="@+id/weekStats"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
@@ -355,123 +362,467 @@
                         android:textSize="13sp" />
                 </LinearLayout>
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </ScrollView>
 
-        <!-- Last 7 days -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
+        <!-- ───────────────────────── Settings ───────────────────────── -->
+        <ScrollView
+            android:id="@+id/pageSettings"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
+            android:layout_height="match_parent"
+            android:visibility="gone">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:paddingHorizontal="18dp"
+                android:paddingTop="18dp"
+                android:paddingBottom="24dp">
 
                 <TextView
-                    style="@style/TextAppearance.ReelCounter.Section"
+                    style="@style/TextAppearance.ReelCounter.Big"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/last_7_days" />
+                    android:text="@string/tab_settings" />
 
-                <com.bhaskar.reelcounter.WeekChartView
-                    android:id="@+id/weekChart"
-                    android:layout_width="match_parent"
-                    android:layout_height="160dp"
-                    android:layout_marginTop="8dp" />
-
-                <TextView
-                    android:id="@+id/weekStats"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:fontFeatureSettings="tnum"
-                    android:textColor="@color/muted"
-                    android:textSize="13sp" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Settings -->
-        <com.google.android.material.card.MaterialCardView
-            style="@style/Widget.ReelCounter.Card"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    style="@style/TextAppearance.ReelCounter.Section"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings" />
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/blockSwitch"
+                <!-- Daily limit: stepper and quick picks -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/setting_block"
-                    android:textColor="@color/fg"
-                    android:textSize="15sp" />
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/badgeSwitch"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/setting_badge"
-                    android:textColor="@color/fg"
-                    android:textSize="15sp" />
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/limit_hint_total" />
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/pauseSwitch"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/setting_pause"
-                    android:textColor="@color/fg"
-                    android:textSize="15sp" />
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/limitLayout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                        <TextView
+                            android:id="@+id/limitMinus"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:background="@drawable/stepper_button"
+                            android:contentDescription="@string/limit_minus"
+                            android:gravity="center"
+                            android:text="−"
+                            android:textColor="@color/fg"
+                            android:textSize="24sp" />
+
+                        <TextView
+                            android:id="@+id/limitValue"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/bricolage_grotesque"
+                            android:fontFeatureSettings="tnum"
+                            android:fontVariationSettings="'wght' 750"
+                            android:gravity="center"
+                            android:textColor="@color/accent"
+                            android:textSize="52sp" />
+
+                        <TextView
+                            android:id="@+id/limitPlus"
+                            android:layout_width="52dp"
+                            android:layout_height="52dp"
+                            android:background="@drawable/stepper_button"
+                            android:contentDescription="@string/limit_plus"
+                            android:gravity="center"
+                            android:text="+"
+                            android:textColor="@color/fg"
+                            android:textSize="24sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/limitQuick"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="10dp"
+                        app:singleLine="true" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/limit_helper"
+                        android:textColor="@color/faint"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <!-- Blocking and pauses -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:hint="@string/limit_hint"
-                    app:helperText="@string/limit_helper">
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/limitInput"
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_blocking" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/blockSwitch"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:imeOptions="actionDone"
-                        android:inputType="number"
-                        android:maxLength="3" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:layout_marginTop="4dp"
+                        android:text="@string/setting_block"
+                        android:textColor="@color/fg"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/pauseSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_pause"
+                        android:textColor="@color/fg"
+                        android:textSize="14sp" />
+                </LinearLayout>
+
+                <!-- Island -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/island_title" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/island_detail"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <com.bhaskar.reelcounter.IslandView
+                        android:id="@+id/islandPreview"
+                        android:layout_width="match_parent"
+                        android:layout_height="160dp"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/island_wallpaper" />
+
+                    <HorizontalScrollView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:scrollbars="none">
+
+                        <com.google.android.material.chip.ChipGroup
+                            android:id="@+id/moodChips"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:selectionRequired="true"
+                            app:singleLine="true"
+                            app:singleSelection="true" />
+                    </HorizontalScrollView>
+
+                    <TextView
+                        android:id="@+id/counterSizeText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textColor="@color/fg"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.slider.Slider
+                        android:id="@+id/counterSizeSlider"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="@string/counter_size_title"
+                        android:stepSize="8"
+                        android:valueFrom="48"
+                        android:valueTo="104"
+                        app:labelBehavior="gone" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/playDayButton"
+                        style="@style/Widget.ReelCounter.Button.Outline"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/play_day" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/badgeSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/setting_badge"
+                        android:textColor="@color/fg"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/widgetsSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_widgets"
+                        android:textColor="@color/fg"
+                        android:textSize="14sp" />
+
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/reduceMotionSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/setting_reduce_motion"
+                        android:textColor="@color/fg"
+                        android:textSize="14sp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/island_position"
+                                android:textColor="@color/fg"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/islandOffsetText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFeatureSettings="tnum"
+                                android:textColor="@color/faint"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/islandUp"
+                            style="@style/Widget.ReelCounter.Button.Outline"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minHeight="44dp"
+                            android:text="@string/island_up" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/islandDown"
+                            style="@style/Widget.ReelCounter.Button.Outline"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:minHeight="44dp"
+                            android:text="@string/island_down" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Appearance -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_label" />
+
+                    <com.google.android.material.button.MaterialButtonToggleGroup
+                        android:id="@+id/themeToggle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        app:selectionRequired="true"
+                        app:singleSelection="true">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/themeSystem"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/theme_system" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/themeLight"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/theme_light" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/themeDark"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/theme_dark" />
+                    </com.google.android.material.button.MaterialButtonToggleGroup>
+                </LinearLayout>
+
+                <!-- Permissions and background -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_permissions" />
+
+                    <TextView
+                        android:id="@+id/statusText"
+                        style="@style/TextAppearance.ReelCounter.Section"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" />
+
+                    <TextView
+                        android:id="@+id/statusDetail"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/enableButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="@string/enable_button" />
+
+                    <LinearLayout
+                        android:id="@+id/batteryCard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/TextAppearance.ReelCounter.Section"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/battery_title" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="@string/battery_detail"
+                            android:textColor="@color/muted"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/batteryButton"
+                            style="@style/Widget.ReelCounter.Button.Outline"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="10dp"
+                            android:text="@string/battery_button" />
+                    </LinearLayout>
+                </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/resetButton"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
+                    style="@style/Widget.ReelCounter.Button.Ghost"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/reset_today"
+                    android:textColor="@color/mood_angry" />
+
+                <TextView
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="@string/reset_today"
-                    android:textColor="@color/over" />
+                    android:gravity="center"
+                    android:text="@string/footer_note"
+                    android:textColor="@color/faint"
+                    android:textSize="12sp" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </ScrollView>
+    </FrameLayout>
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="@string/footer_note"
-            android:textColor="@color/muted"
-            android:textSize="12sp" />
+    <!-- Bottom bar: Today · Insights · Settings; the active tab gets a mood-coloured bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/bg"
+        android:orientation="horizontal"
+        android:paddingTop="8dp"
+        android:paddingBottom="10dp">
+
+        <LinearLayout
+            android:id="@+id/navToday"
+            style="@style/Widget.ReelCounter.NavItem">
+
+            <View
+                android:id="@+id/navTodayBar"
+                style="@style/Widget.ReelCounter.NavBar" />
+
+            <TextView
+                android:id="@+id/navTodayText"
+                style="@style/Widget.ReelCounter.NavLabel"
+                android:text="@string/tab_today" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navInsights"
+            style="@style/Widget.ReelCounter.NavItem">
+
+            <View
+                android:id="@+id/navInsightsBar"
+                style="@style/Widget.ReelCounter.NavBar" />
+
+            <TextView
+                android:id="@+id/navInsightsText"
+                style="@style/Widget.ReelCounter.NavLabel"
+                android:text="@string/tab_insights" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navSettings"
+            style="@style/Widget.ReelCounter.NavItem">
+
+            <View
+                android:id="@+id/navSettingsBar"
+                style="@style/Widget.ReelCounter.NavBar" />
+
+            <TextView
+                android:id="@+id/navSettingsText"
+                style="@style/Widget.ReelCounter.NavLabel"
+                android:text="@string/tab_settings" />
+        </LinearLayout>
     </LinearLayout>
-</ScrollView>
+</LinearLayout>

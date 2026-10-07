@@ -1,74 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Pause before opening (design: "The healthy choice is the big button. The countdown breathes;
+     it isn't a bomb."). Always Night, over any app. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/block_scrim"
     android:clickable="true"
-    android:focusable="true">
+    android:focusable="true"
+    android:orientation="vertical"
+    android:paddingHorizontal="24dp"
+    android:paddingTop="48dp"
+    android:paddingBottom="32dp">
 
-    <LinearLayout
+    <View
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="32dp">
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <FrameLayout
+        android:layout_width="150dp"
+        android:layout_height="150dp"
+        android:layout_gravity="center_horizontal">
+
+        <com.bhaskar.reelcounter.SpinnerRingView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
 
         <com.bhaskar.reelcounter.EyesView
-            android:layout_width="200dp"
-            android:layout_height="110dp" />
+            android:id="@+id/pauseEyes"
+            android:layout_width="124dp"
+            android:layout_height="124dp"
+            android:layout_gravity="center" />
+    </FrameLayout>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center"
-            android:text="@string/pause_title"
-            android:textColor="@color/film_fg"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+    <TextView
+        android:id="@+id/pauseCountdown"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:fontFamily="@font/bricolage_grotesque"
+        android:fontFeatureSettings="tnum"
+        android:fontVariationSettings="'wght' 700"
+        android:textColor="@color/night_faint"
+        android:textSize="14sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:gravity="center"
-            android:text="@string/pause_body"
-            android:textColor="@color/film_fg"
-            android:textSize="16sp" />
+    <TextView
+        android:id="@+id/pauseTitle"
+        style="@style/TextAppearance.ReelCounter.Big"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:textColor="@color/film_fg" />
 
-        <TextView
-            android:id="@+id/pauseMessage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:textColor="@color/film_muted"
-            android:textSize="14sp" />
+    <TextView
+        android:id="@+id/pauseMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:textColor="@color/film_muted"
+        android:textSize="14sp" />
 
-        <TextView
-            android:id="@+id/pauseCountdown"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:fontFeatureSettings="tnum"
-            android:textColor="@color/film_fg"
-            android:textSize="64sp"
-            android:textStyle="bold" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.4" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/pauseLeave"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="@string/pause_leave" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/pauseLeave"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="@color/night_calm"
+        android:text="@string/pause_leave"
+        android:textColor="@color/night_on_calm" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/pauseContinue"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/film_muted" />
-    </LinearLayout>
-</FrameLayout>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/pauseContinue"
+        style="@style/Widget.ReelCounter.Button.Ghost"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/night_faint" />
+</LinearLayout>

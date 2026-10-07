@@ -9,11 +9,14 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
+import com.bhaskar.reelcounter.widget.WidgetUpdater
 import java.time.LocalDate
 
 /**
@@ -42,12 +45,20 @@ class KeepAliveService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         return START_STICKY
     }
 
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** Widgets redraw their eyes, so they're refreshed at most every couple of seconds. */
+    private val refreshWidgets = Runnable { WidgetUpdater.updateAll(this) }
+
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+        handler.removeCallbacks(refreshWidgets)
+        handler.postDelayed(refreshWidgets, WIDGET_REFRESH_MS)
     }
 
     private fun buildNotification() = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.drawable.ic_notification)
+        .setSmallIcon(R.drawable.ic_stat_reel_counter)
+        .setColor(0xFF4FE3B0.toInt())
         .setContentTitle(getString(R.string.notif_title, CountStore.total(this, LocalDate.now())))
         .setContentText(getString(R.string.notif_text, CountStore.limit(this)))
         .setContentIntent(
@@ -62,6 +73,7 @@ class KeepAliveService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         .build()
 
     override fun onDestroy() {
+        handler.removeCallbacks(refreshWidgets)
         CountStore.prefs(this).unregisterOnSharedPreferenceChangeListener(this)
         super.onDestroy()
     }
@@ -70,6 +82,7 @@ class KeepAliveService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         private const val TAG = "KeepAliveService"
         private const val CHANNEL_ID = "counting"
         private const val NOTIFICATION_ID = 1
+        private const val WIDGET_REFRESH_MS = 2000L
 
         /** Starts the service; Android may refuse when the app is in the background, which is fine. */
         fun start(ctx: Context) {

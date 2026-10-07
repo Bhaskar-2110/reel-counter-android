@@ -1,15 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Night Garden palette, exactly as in design_docs/reel-counter-mockups.html. -->
 <resources>
-    <color name="bg">#161513</color>
-    <color name="surface">#201F1C</color>
-    <color name="fg">#F1EEE8</color>
-    <color name="muted">#A39E94</color>
-    <color name="line">#34312C</color>
-    <color name="bar">#4A463F</color>
-    <color name="accent">#FF6A2B</color>
-    <color name="on_accent">#1B1A17</color>
-    <color name="ok">#4CC183</color>
-    <color name="warn">#E8B33A</color>
-    <color name="over">#FF5A4C</color>
-    <color name="film">#0C0B0A</color>
+    <color name="bg">#0B0D17</color>
+    <color name="surface">#151827</color>
+    <color name="raised">#1E2235</color>
+    <color name="line">#2C3150</color>
+    <color name="fg">#F2F3F8</color>
+    <color name="muted">#A3A8C3</color>
+    <color name="faint">#7F84A3</color>
+    <color name="bar">#2C3150</color>
+
+    <color name="accent">#4FE3B0</color>
+    <color name="on_accent">#062A1F</color>
+    <color name="premium">#A99BFF</color>
+
+    <color name="mood_calm">#4FE3B0</color>
+    <color name="mood_curious">#5CC8FF</color>
+    <color name="mood_worried">#FFC24D</color>
+    <color name="mood_sad">#FF8A65</color>
+    <color name="mood_angry">#FF4D5E</color>
+
+    <color name="ok">#4FE3B0</color>
+    <color name="warn">#FFC24D</color>
+    <color name="over">#FF4D5E</color>
 </resources>
