@@ -195,6 +195,7 @@
     <string name="reset_title">Reset today?</string>
     <string name="reset_message">Today\'s reel count and app opens go back to 0. Earlier days stay as they are.</string>
     <string name="reset">Reset</string>
+    <string name="replay_onboarding">Show the welcome tour again</string>
 
     <string name="footer_note">A reel is counted each time you swipe to a new one. The first video you open in a session isn\'t counted until you swipe.</string>
     <string name="pause_title_opens">Open #%1$d today.</string>

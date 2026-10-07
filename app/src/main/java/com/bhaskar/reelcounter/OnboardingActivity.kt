@@ -62,6 +62,11 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
         super.onCreate(savedInstanceState)
         binding = ActivityOnboardingBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // Replaying the tour (or restored from a backup): start from the saved guess and limit.
+        CountStore.guess(this).takeIf { it > 0 }?.let {
+            guess = it
+            limit = CountStore.limit(this)
+        }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (step == Step.WELCOME) finish() else show(previous(step))

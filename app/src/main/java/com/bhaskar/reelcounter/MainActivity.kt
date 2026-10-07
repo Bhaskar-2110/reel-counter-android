@@ -99,6 +99,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         binding.playDayButton.setOnClickListener { playDay() }
         binding.pauseSwitch.setOnCheckedChangeListener { _, on -> CountStore.setPauseOnOpen(this, on) }
 
+        // Replays onboarding; counts and settings are kept, each step starts from them.
+        binding.tourButton.setOnClickListener {
+            CountStore.setOnboarded(this, false)
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+        }
+
         binding.resetButton.setOnClickListener {
             MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.reset_title)
