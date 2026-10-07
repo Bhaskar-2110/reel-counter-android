@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Reel Counter</string>
+
+    <string name="service_label">Reel Counter</string>
+    <string name="service_description">Counts the short videos you swipe through in Instagram Reels, YouTube Shorts, Snapchat Spotlight, TikTok, Moj and Josh, shows a counter while you watch, and takes you out of them when you reach your daily limit. It looks only at which screen is open, reads no text or messages, and keeps the count on this phone.</string>
+
+    <string name="status_on">Counting is on</string>
+    <string name="status_on_detail">Reels, Shorts and Spotlight from every app go into one count. A counter shows on screen while you watch.</string>
+    <string name="status_off">Counting is off</string>
+    <string name="status_off_detail">Open Accessibility settings, tap Reel Counter under Downloaded apps, and turn it on. If the switch is greyed out, open App info for Reel Counter, tap the ⋮ menu and choose Allow restricted settings first.</string>
+    <string name="enable_button">Open Accessibility settings</string>
+
+    <string name="notif_channel">Counting status</string>
+    <string name="notif_title">%1$d reels today</string>
+    <string name="notif_text">Reel Counter is on · daily limit %1$d</string>
+
+    <string name="battery_title">Keep counting in the background</string>
+    <string name="battery_detail">OnePlus and other phones stop apps to save battery, which turns counting off. Allow Reel Counter to run in the background. On OnePlus, also open Recent apps, tap Reel Counter\'s ⋮ menu and choose Lock.</string>
+    <string name="battery_button">Allow background running</string>
+
+    <string name="reels_today">Reels today</string>
+
+    <string name="daily_limit">Daily limit</string>
+    <string name="left_today">%1$d of %2$d reels left today</string>
+    <string name="over_limit">%1$d reels past your limit of %2$d</string>
+    <string name="at_limit">Limit reached. Reels, Shorts and Spotlight are blocked until tomorrow. The rest of each app still works.</string>
+    <string name="limit_toast">%1$d reels today. Your limit is %2$d.</string>
+
+    <string name="block_title">Daily limit reached</string>
+    <string name="block_message">You\'ve watched %1$d reels today. Your limit is %2$d.</string>
+    <string name="block_hint">Reels and Shorts open again tomorrow. The rest of the app still works, and you can change your limit in Reel Counter.</string>
+    <string name="close">Close</string>
+
+    <string name="pause_title">This app will kill your time</string>
+    <string name="pause_body">You could do something productive instead.</string>
+    <string name="pause_message">You\'ve opened social apps %1$d times today.</string>
+    <string name="pause_leave">Close app and do something useful</string>
+    <string name="pause_continue_in">Continue in %1$d s</string>
+    <string name="pause_continue">Continue anyway</string>
+    <string name="opens_free">Opened social apps %1$d times today · %2$d more before the pause screen starts</string>
+    <string name="opens_paused">Opened social apps %1$d times today · next pause %2$d s</string>
+
+    <string name="usage_title">Social media screen time</string>
+    <string name="usage_access_hint">See how long you spend in each social media app, using the same Android data as Digital Wellbeing. Tap below, find Reel Counter and turn on Permit usage access.</string>
+    <string name="usage_access_button">Allow usage access</string>
+    <string name="usage_total_today">%1$s today</string>
+    <string name="usage_opens_total">%1$d opens across social apps</string>
+    <string name="usage_app_opens">%1$d opens</string>
+    <string name="usage_none">No social media use yet today.</string>
+    <string name="usage_week">Last 7 days: %1$s · about %2$s a day</string>
+    <string name="duration_under_minute">under 1 min</string>
+    <string name="duration_minutes">%1$d min</string>
+    <string name="duration_hours">%1$dh %2$dm</string>
+
+    <string name="island_title">Your reel island</string>
+    <string name="island_detail">Floats at the top of the screen while you watch. Curious while the count is low, electric when you scroll too fast, angry at your limit.</string>
+    <string name="mood_curious">Curious</string>
+    <string name="mood_electric">Electric</string>
+    <string name="mood_angry">Angry</string>
+
+    <string name="last_7_days">Last 7 days</string>
+    <string name="today">Today</string>
+    <string name="week_stats">Average %1$d a day · %2$d this week</string>
+
+    <string name="settings">Settings</string>
+    <string name="setting_block">Block Reels and Shorts when I reach my limit</string>
+    <string name="setting_badge">Show the counter while I watch</string>
+    <string name="setting_pause">Pause before opening social apps (after 5 opens a day)</string>
+    <string name="limit_hint">Daily limit</string>
+    <string name="limit_helper">Any number from 1 to 999. Changes apply right away.</string>
+    <string name="limit_error">Enter a number from 1 to 999</string>
+    <string name="reset_today">Reset today\'s count</string>
+    <string name="reset_title">Reset today?</string>
+    <string name="reset_message">Today\'s reel count and app opens go back to 0. Earlier days stay as they are.</string>
+    <string name="reset">Reset</string>
+
+    <string name="footer_note">A reel is counted each time you swipe to a new one. The first video you open in a session isn\'t counted until you swipe.</string>
+</resources>

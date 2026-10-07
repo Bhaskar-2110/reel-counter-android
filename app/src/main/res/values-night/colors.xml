@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#161513</color>
+    <color name="surface">#201F1C</color>
+    <color name="fg">#F1EEE8</color>
+    <color name="muted">#A39E94</color>
+    <color name="line">#34312C</color>
+    <color name="bar">#4A463F</color>
+    <color name="accent">#FF6A2B</color>
+    <color name="on_accent">#1B1A17</color>
+    <color name="ok">#4CC183</color>
+    <color name="warn">#E8B33A</color>
+    <color name="over">#FF5A4C</color>
+    <color name="film">#0C0B0A</color>
+</resources>

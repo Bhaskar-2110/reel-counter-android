@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colourful abstract backdrop for the island preview, so the glass reads as glass. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <corners android:radius="12dp" />
+            <gradient
+                android:angle="135"
+                android:centerColor="#FFB347D9"
+                android:endColor="#FF2EC5FF"
+                android:startColor="#FFFF7A59" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <corners android:radius="12dp" />
+            <gradient
+                android:centerX="0.25"
+                android:centerY="0.2"
+                android:endColor="#00FFD166"
+                android:gradientRadius="160dp"
+                android:startColor="#CCFFD166"
+                android:type="radial" />
+        </shape>
+    </item>
+</layer-list>
