@@ -127,13 +127,21 @@ object CountStore {
 
     // Onboarding and tracked apps
 
-    /** True once onboarding is finished. People who used the app before onboarding existed skip it. */
-    fun isOnboarded(ctx: Context): Boolean {
-        val p = prefs(ctx)
-        return p.getBoolean(KEY_ONBOARDED, p.all.keys.any { it.startsWith("total|") || it.startsWith("time|") })
-    }
+    /**
+     * True once onboarding is finished on this phone. Kept in [DEVICE_PREFS], which Android
+     * never backs up: counts and settings may come back from a backup after a reinstall or on a
+     * new phone, but permissions don't, so onboarding must run again to ask for them.
+     */
+    fun isOnboarded(ctx: Context): Boolean = devicePrefs(ctx).getBoolean(KEY_ONBOARDED, false)
 
-    fun setOnboarded(ctx: Context) = prefs(ctx).edit().putBoolean(KEY_ONBOARDED, true).apply()
+    fun setOnboarded(ctx: Context, value: Boolean = true) =
+        devicePrefs(ctx).edit().putBoolean(KEY_ONBOARDED, value).apply()
+
+    /** Settings that belong to this phone only; excluded from backup (res/xml/backup_rules.xml). */
+    private fun devicePrefs(ctx: Context): SharedPreferences =
+        ctx.getSharedPreferences(DEVICE_PREFS, Context.MODE_PRIVATE)
+
+    const val DEVICE_PREFS = "device_state"
 
     /** Whether [platform] is counted at all; chosen in onboarding ("Which apps?"). */
     fun isTracked(ctx: Context, platform: Platform): Boolean =
