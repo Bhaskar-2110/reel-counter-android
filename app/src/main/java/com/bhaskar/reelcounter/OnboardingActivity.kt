@@ -53,8 +53,10 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     private var usageSkipped = false
     private var agreed = false
     private var yesterdayMinutes = -1
-    private val backgroundDone = BooleanArray(3)
+    /** The user said they locked the app in Recents (Android can't check that). */
+    private var lockDone = false
     private var reelsAtStart = -1
+    private var shownOnce = false
 
     private enum class Step { WELCOME, GUESS, USAGE, REVEAL, LIMIT, ACCESSIBILITY, NOTIFICATIONS, BACKGROUND, FIRST_REEL }
 
@@ -72,7 +74,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
                 if (step == Step.WELCOME) finish() else show(previous(step))
             }
         })
-        show(Step.WELCOME)
+        show(restoreProgress())
     }
 
     override fun onResume() {
@@ -109,15 +111,41 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
 
     // Rendering
 
+    /**
+     * Picks up where the user left off if the app was closed half-way (typically by the phone,
+     * while they were in Settings granting a permission). Starts at Welcome otherwise.
+     */
+    private fun restoreProgress(): Step {
+        val parts = CountStore.onboardingProgress(this)?.split('|') ?: return Step.WELCOME
+        if (parts.size < 5) return Step.WELCOME
+        guess = parts[1].toIntOrNull() ?: guess
+        limit = parts[2].toIntOrNull() ?: limit
+        usageSkipped = parts[3] == "1"
+        agreed = parts[4] == "1"
+        reelsAtStart = parts.getOrNull(5)?.toIntOrNull() ?: reelsAtStart
+        lockDone = parts.getOrNull(6) == "1"
+        return Step.entries.firstOrNull { it.name == parts[0] } ?: Step.WELCOME
+    }
+
+    private fun saveProgress() = CountStore.setOnboardingProgress(
+        this,
+        listOf(step.name, guess, limit, if (usageSkipped) 1 else 0, if (agreed) 1 else 0, reelsAtStart, if (lockDone) 1 else 0)
+            .joinToString("|"),
+    )
+
     private fun show(s: Step) {
         step = s
+        saveProgress()
         binding.extra.removeAllViews()
         binding.ghost.isVisible = false
         binding.primary.isEnabled = true
+        // The same stage on every step, as in well-planned onboardings (Regain): Iris in the same
+        // spot and size, a centred headline with its key words in the accent colour, one line of
+        // text, the step's content, and the buttons at the bottom.
         binding.topSpace.layoutParams.height = 0
-        binding.title.gravity = Gravity.START
-        binding.text.gravity = Gravity.START
-        binding.eyes.layoutParams.apply { width = (150 * dp).toInt(); height = (150 * dp).toInt() }
+        binding.title.gravity = Gravity.CENTER
+        binding.text.gravity = Gravity.CENTER
+        binding.eyes.layoutParams.apply { width = (170 * dp).toInt(); height = (170 * dp).toInt() }
         renderDots()
         when (s) {
             Step.WELCOME -> welcome()
@@ -132,6 +160,13 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
         }
         binding.eyes.requestLayout()
         binding.topSpace.requestLayout()
+        // A gentle slide-in, so steps flow instead of swapping.
+        if (shownOnce) {
+            binding.body.alpha = 0f
+            binding.body.translationY = 18 * dp
+            binding.body.animate().alpha(1f).translationY(0f).setDuration(260).start()
+        }
+        shownOnce = true
     }
 
     /** Dots for steps 1–8; the current one is a wider mint pill, finished ones are dimmer mint. */
@@ -169,10 +204,10 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     // Steps
 
     private fun welcome() {
-        binding.topSpace.layoutParams.height = (90 * dp).toInt()
+        binding.topSpace.layoutParams.height = 0
         binding.eyes.layoutParams.apply { width = (220 * dp).toInt(); height = (220 * dp).toInt() }
         binding.eyes.setMood(Mood.HAPPY)
-        binding.title.setText(R.string.onb_welcome_title)
+        binding.title.text = accent(getString(R.string.onb_welcome_title))
         binding.text.setText(R.string.onb_welcome_text)
         binding.title.gravity = Gravity.CENTER
         binding.text.gravity = Gravity.CENTER
@@ -181,7 +216,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
 
     private fun guessStep() {
         binding.eyes.setMood(guessMood(guess))
-        binding.title.setText(R.string.onb_guess_title)
+        binding.title.text = accent(getString(R.string.onb_guess_title))
         binding.text.text = ""
 
         val box = surface()
@@ -209,7 +244,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
         val chips = ChipGroup(this)
         Platform.entries.forEach { platform ->
             val installed = platform.packages.any { isInstalled(it) }
-            chips.addView(Chip(this).apply {
+            chips.addView(filterChip(this).apply {
                 text = platform.shortName
                 isCheckable = true
                 isChecked = CountStore.isTracked(this@OnboardingActivity, platform) && installed
@@ -226,16 +261,8 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
 
     private fun usageStep() {
         binding.eyes.setMood(Mood.CURIOUS)
-        binding.title.setText(R.string.onb_usage_title)
+        binding.title.text = accent(getString(R.string.onb_usage_title))
         binding.text.setText(R.string.onb_usage_text)
-        binding.extra.addView(
-            checkCard(
-                true to R.string.onb_usage_yes1,
-                false to R.string.onb_usage_no,
-                true to R.string.onb_usage_yes2,
-            ),
-            margins(top = 16),
-        )
         if (UsageRepository.hasAccess(this)) {
             primary(R.string.onb_continue) { show(Step.REVEAL) }
         } else {
@@ -253,7 +280,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
         binding.eyes.setMood(Mood.SURPRISED)
         primary(R.string.onb_set_limit) { show(Step.LIMIT) }
         if (yesterdayMinutes < 0) {
-            binding.title.setText(R.string.onb_reveal_loading)
+            binding.title.text = accent(getString(R.string.onb_reveal_loading))
             binding.text.text = ""
             val app = applicationContext
             io.execute {
@@ -261,7 +288,9 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
                 val yesterday = LocalDate.now().minusDays(1)
                 val start = yesterday.atStartOfDay(zone).toInstant().toEpochMilli()
                 val end = yesterday.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-                val ms = UsageRepository.socialUsage(app, start, end).sumOf { it.foregroundMs }
+                // Only short-video apps: chat time (WhatsApp, Telegram) isn't reels.
+                val reelApps = Platform.entries.flatMap { it.packages }.toSet()
+                val ms = UsageRepository.socialUsage(app, start, end).filter { it.packageName in reelApps }.sumOf { it.foregroundMs }
                 runOnUiThread {
                     yesterdayMinutes = (ms / 60_000).toInt()
                     if (!isDestroyed && step == Step.REVEAL) show(Step.REVEAL)
@@ -270,7 +299,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
             return
         }
         val estimate = yesterdayMinutes * 60 / SECONDS_PER_REEL
-        binding.title.text = getString(R.string.onb_reveal_title, formatMinutes(yesterdayMinutes))
+        binding.title.text = accent(getString(R.string.onb_reveal_title, formatMinutes(yesterdayMinutes)))
         binding.text.text = getString(R.string.onb_reveal_text, estimate, yesterdayMinutes * 7 / 60)
         val max = maxOf(estimate, guess, 1)
         val compare = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -282,7 +311,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
 
     private fun limitStep() {
         binding.eyes.setMood(Mood.HAPPY)
-        binding.title.text = getString(R.string.onb_limit_title, limit)
+        binding.title.text = accent(getString(R.string.onb_limit_title, limit))
         binding.text.setText(if (usageSkipped) R.string.onb_limit_text_skipped else R.string.onb_limit_text)
 
         val stepper = LinearLayout(this).apply {
@@ -310,7 +339,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
 
         val quick = ChipGroup(this).apply { isSingleLine = true }
         listOf(20, 40, 60, 100).forEach { q ->
-            quick.addView(Chip(this).apply {
+            quick.addView(filterChip(this).apply {
                 text = q.toString()
                 isCheckable = true
                 isChecked = limit == q
@@ -320,7 +349,12 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
                 }
             })
         }
-        binding.extra.addView(quick, margins(top = 10).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        binding.extra.addView(quick, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = (10 * dp).toInt()
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
         primary(R.string.onb_sounds_good) {
             CountStore.setLimit(this, limit)
             show(Step.ACCESSIBILITY)
@@ -330,7 +364,7 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     /** The hard step: a clear disclosure with an explicit "I agree", and "later" allowed. */
     private fun accessibilityStep() {
         binding.eyes.setMood(Mood.PLEADING)
-        binding.title.setText(R.string.onb_a11y_title)
+        binding.title.text = accent(getString(R.string.onb_a11y_title))
         binding.text.setText(R.string.onb_a11y_text)
         binding.extra.addView(
             checkCard(
@@ -344,25 +378,26 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
             primary(R.string.onb_continue) { show(Step.NOTIFICATIONS) }
             return
         }
-        val agree = CheckBox(this).apply {
-            setText(R.string.onb_a11y_agree)
-            isChecked = agreed
-            setTextColor(getColor(R.color.fg))
-            buttonTintList = ColorStateList.valueOf(getColor(R.color.accent))
-            setOnCheckedChangeListener { _, on ->
-                agreed = on
-                binding.primary.isEnabled = on
-            }
+        binding.extra.addView(TextView(this).apply {
+            setText(R.string.a11y_help_link)
+            setTextColor(getColor(R.color.accent))
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(0, (10 * dp).toInt(), 0, (10 * dp).toInt())
+            setOnClickListener { MainActivity.showAccessibilityHelp(this@OnboardingActivity) }
+        }, margins(top = 6))
+        // One clear action: the button itself is the consent, right under the disclosure.
+        primary(R.string.onb_a11y_agree_open) {
+            agreed = true
+            saveProgress()
+            MainActivity.openAccessibilitySettings(this)
         }
-        binding.extra.addView(agree, margins(top = 12))
-        primary(R.string.onb_open_settings) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-        binding.primary.isEnabled = agreed
         ghost(R.string.onb_later) { show(Step.NOTIFICATIONS) }
     }
 
     private fun notificationsStep() {
         binding.eyes.setMood(Mood.CURIOUS)
-        binding.title.setText(R.string.onb_notif_title)
+        binding.title.text = accent(getString(R.string.onb_notif_title))
         binding.text.setText(R.string.onb_notif_text)
 
         val card = LinearLayout(this).apply {
@@ -410,23 +445,24 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     }
 
     /** Brand-specific settings that keep the app alive; only shown on brands that need them. */
+    /**
+     * Brand-specific settings that keep the app alive. Auto-launch isn't listed: with
+     * Accessibility on, the phone starts the app by itself (OxygenOS says so on the
+     * Accessibility page). Battery is checked for real; Recents locking can't be checked.
+     */
     private fun backgroundStep() {
-        val all = backgroundDone.all { it }
+        val batteryDone = getSystemService(android.os.PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
+        val all = batteryDone && lockDone
         binding.eyes.setMood(if (all) Mood.HAPPY else Mood.WORRIED)
-        binding.title.text = getString(R.string.onb_bg_title, brandName())
+        binding.title.text = accent(getString(R.string.onb_bg_title, brandName()))
         binding.text.text = getString(R.string.onb_bg_text, brandName())
-        val items = listOf(R.string.onb_bg_battery, R.string.onb_bg_autolaunch, R.string.onb_bg_lock)
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        items.forEachIndexed { i, label ->
-            list.addView(checkRow(i + 1, getString(label), backgroundDone[i]) {
-                backgroundDone[i] = true
-                when (i) {
-                    0 -> requestBackgroundRunning()
-                    1 -> startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
-                    2 -> Toast.makeText(this, R.string.onb_bg_lock_how, Toast.LENGTH_LONG).show()
-                }
-            }, margins(top = 8))
-        }
+        list.addView(checkRow(1, getString(R.string.onb_bg_battery), batteryDone) { requestBackgroundRunning() }, margins(top = 8))
+        list.addView(checkRow(2, getString(R.string.onb_bg_lock), lockDone) {
+            lockDone = true
+            saveProgress()
+            Toast.makeText(this, R.string.onb_bg_lock_how, Toast.LENGTH_LONG).show()
+        }, margins(top = 8))
         binding.extra.addView(list, margins(top = 12))
         binding.extra.addView(small(getString(R.string.onb_bg_note)), margins(top = 10))
         primary(if (all) R.string.onb_continue else R.string.onb_bg_done) { show(Step.FIRST_REEL) }
@@ -437,17 +473,20 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     private fun firstReelStep() {
         if (!MainActivity.isServiceEnabled(this)) {
             binding.eyes.setMood(Mood.SAD)
-            binding.title.setText(R.string.onb_waiting_title)
+            binding.title.text = accent(getString(R.string.onb_waiting_title))
             binding.text.setText(R.string.onb_waiting_text)
             primary(R.string.onb_turn_on_now) { show(Step.ACCESSIBILITY) }
             ghost(R.string.onb_go_today) { finishOnboarding() }
             return
         }
         val total = CountStore.total(this, LocalDate.now())
-        if (reelsAtStart < 0) reelsAtStart = total
+        if (reelsAtStart < 0) {
+            reelsAtStart = total
+            saveProgress()
+        }
         val counted = total > reelsAtStart
         binding.eyes.setMood(if (counted) Mood.HAPPY else Mood.CURIOUS)
-        binding.title.setText(if (counted) R.string.onb_reel_done_title else R.string.onb_reel_title)
+        binding.title.text = accent(getString(if (counted) R.string.onb_reel_done_title else R.string.onb_reel_title))
         binding.text.setText(if (counted) R.string.onb_reel_done_text else R.string.onb_reel_text)
         if (counted) {
             val chips = ChipGroup(this)
@@ -488,9 +527,12 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     @SuppressLint("BatteryLife")
     private fun requestBackgroundRunning() {
         try {
-            startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         } catch (e: Exception) {
-            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 
@@ -520,6 +562,26 @@ class OnboardingActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefer
     private fun formatMinutes(minutes: Int): String =
         if (minutes < 60) getString(R.string.duration_minutes, minutes)
         else getString(R.string.onb_hours_minutes, minutes / 60, minutes % 60)
+
+    /** Colours the words between *asterisks* in the accent colour (and drops the asterisks). */
+    private fun accent(text: String): CharSequence {
+        val out = android.text.SpannableStringBuilder()
+        var on = false
+        var start = 0
+        for (c in text) {
+            if (c == '*') {
+                if (on) out.setSpan(
+                    android.text.style.ForegroundColorSpan(getColor(R.color.accent)), start, out.length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+                on = !on
+                start = out.length
+            } else {
+                out.append(c)
+            }
+        }
+        return out
+    }
 
     private fun margins(top: Int = 0) = LinearLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,

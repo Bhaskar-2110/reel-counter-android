@@ -142,6 +142,18 @@
                     android:textColor="@color/faint"
                     android:textSize="12sp" />
 
+                <!-- Each app's reels at a glance (idea from BrainPal) -->
+                <LinearLayout
+                    android:id="@+id/appPill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/pill_surface"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="14dp" />
+
                 <!-- Reels by app -->
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -248,6 +260,59 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/tab_insights" />
+
+                <!-- Reels today: by app and by hour -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/reels_title" />
+
+                    <TextView
+                        android:id="@+id/reelsTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="@font/bricolage_grotesque"
+                        android:fontVariationSettings="'wght' 750"
+                        android:textColor="@color/fg"
+                        android:textSize="32sp" />
+
+                    <TextView
+                        android:id="@+id/reelsSub"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/muted"
+                        android:textSize="14sp" />
+
+                    <LinearLayout
+                        android:id="@+id/reelsApps"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/reels_by_hour" />
+
+                    <com.bhaskar.reelcounter.BarsView
+                        android:id="@+id/hourChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="120dp"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
 
                 <!-- Social media screen time -->
                 <LinearLayout
@@ -457,6 +522,85 @@
                         android:text="@string/limit_helper"
                         android:textColor="@color/faint"
                         android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/limitSuggestion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:background="@drawable/banner_calm"
+                        android:padding="12dp"
+                        android:textColor="@color/fg"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <!-- Which apps are counted -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_apps" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/trackedApps"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/settings_apps_hint"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <!-- No-reel hours (schedules) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/surface_rounded"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        style="@style/TextAppearance.ReelCounter.Eyebrow"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settings_schedules" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/settings_schedules_hint"
+                        android:textColor="@color/muted"
+                        android:textSize="13sp" />
+
+                    <LinearLayout
+                        android:id="@+id/scheduleRows"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:orientation="vertical" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/addSchedule"
+                        style="@style/Widget.ReelCounter.Button.Ghost"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/schedule_add" />
                 </LinearLayout>
 
                 <!-- Blocking and pauses -->
@@ -715,12 +859,62 @@
                         android:textColor="@color/muted"
                         android:textSize="13sp" />
 
+                    <TextView
+                        android:id="@+id/healthText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@color/faint"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/crashText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/banner_worried"
+                        android:padding="10dp"
+                        android:textColor="@color/fg"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:id="@+id/crashButtons"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/crashCopy"
+                            style="@style/Widget.ReelCounter.Button.Ghost"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/crash_copy" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/crashClear"
+                            style="@style/Widget.ReelCounter.Button.Ghost"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/crash_clear" />
+                    </LinearLayout>
+
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/enableButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
                         android:text="@string/enable_button" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/a11yHelpButton"
+                        style="@style/Widget.ReelCounter.Button.Ghost"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/a11y_help_link" />
 
                     <LinearLayout
                         android:id="@+id/batteryCard"
@@ -769,6 +963,15 @@
                     android:layout_marginTop="12dp"
                     android:text="@string/reset_today"
                     android:textColor="@color/mood_angry" />
+
+                <TextView
+                    android:id="@+id/versionText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:textColor="@color/faint"
+                    android:textSize="12sp" />
 
                 <TextView
                     android:layout_width="match_parent"

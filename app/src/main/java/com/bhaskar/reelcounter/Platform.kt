@@ -11,7 +11,8 @@ package com.bhaskar.reelcounter
  *
  * Most apps report scrolling when you swipe to the next video. Where an app doesn't, set
  * [progressBarId]: the ID of the video's progress bar, whose description ("29 seconds of
- * 59 seconds") shows when a new video starts.
+ * 59 seconds") shows when a new video starts; or [signatureRootId]: a view whose text (the
+ * creator and sound line) changes with each video.
  */
 enum class Platform(
     val label: String,
@@ -20,6 +21,7 @@ enum class Platform(
     val shortsViewIds: List<String> = emptyList(),
     val shortsIdHints: List<String> = emptyList(),
     val progressBarId: String? = null,
+    val signatureRootId: String? = null,
 ) {
     INSTAGRAM(
         "Instagram Reels",
@@ -46,7 +48,11 @@ enum class Platform(
         "Snapchat Spotlight",
         "Snapchat",
         setOf("com.snapchat.android"),
-        shortsIdHints = listOf("spotlight"),
+        // Most of Snapchat's view names are scrambled, but these two aren't (checked on a
+        // OnePlus with Snapchat, 8 Oct 2026). Snapchat sends no scroll events, so a new video is
+        // spotted when the creator/sound text in the viewer changes.
+        shortsViewIds = listOf("com.snapchat.android:id/spotlight_container"),
+        signatureRootId = "com.snapchat.android:id/opera_viewer",
     ),
     TIKTOK("TikTok", "TikTok", setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")),
     MOJ("Moj", "Moj", setOf("in.mohalla.video")),

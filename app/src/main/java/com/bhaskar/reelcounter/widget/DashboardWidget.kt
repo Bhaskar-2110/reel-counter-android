@@ -38,6 +38,7 @@ class DashboardWidget : AppWidgetProvider() {
                     else ctx.getString(R.string.widget_of_limit, data.total, data.limit),
                 )
                 WidgetData.showProgress(this, data.progress, R.id.barOk, R.id.barWarn, R.id.barOver)
+                WidgetData.showNudge(ctx, this, data)
                 setTextViewText(
                     R.id.summaryText,
                     ctx.getString(R.string.widget_summary, WidgetData.formatDuration(ctx, data.timeMs), data.opens),

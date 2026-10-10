@@ -1,3 +1,6 @@
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,7 +15,8 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        // The build time makes each APK easy to tell apart (shown at the bottom of Settings).
+        versionName = "1.0 (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("d MMM HH:mm")) + ")"
     }
 
     buildTypes {

@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatDelegate
 class ReelCounterApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        CrashLog.install(this)
         AppCompatDelegate.setDefaultNightMode(CountStore.themeMode(this))
     }
 }

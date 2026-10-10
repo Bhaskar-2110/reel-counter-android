@@ -138,4 +138,35 @@ class IrisRigTest {
         rig.run(3f)
         assertTrue("still squashed by ${rig.sq.x} after 4 s", abs(rig.sq.x) < 0.01f)
     }
+
+    /** Counts giggle bursts (big squishes at least 1.5 s apart) over [seconds]. */
+    private fun giggleBursts(mood: Mood, reduceMotion: Boolean = false, seconds: Float = 30f): Int {
+        val rig = IrisRig(reduceMotion)
+        rig.locked = mood
+        var bursts = 0
+        var last = -10f
+        repeat((seconds / frame).toInt()) {
+            rig.update(frame)
+            if (abs(rig.sq.x) > 0.05f && rig.t - last > 1.5f) {
+                bursts++
+                last = rig.t
+            }
+        }
+        return bursts
+    }
+
+    @Test
+    fun happyCuriousAndWorriedGiggleSadAndSleepyDont() {
+        assertTrue("happy giggled ${giggleBursts(Mood.HAPPY)} times in 30 s", giggleBursts(Mood.HAPPY) >= 4)
+        assertTrue("curious giggled ${giggleBursts(Mood.CURIOUS)} times in 30 s", giggleBursts(Mood.CURIOUS) >= 2)
+        assertTrue(giggleBursts(Mood.WORRIED) >= 1)
+        // (Angry squishes too, but those are its huffs.)
+        assertEquals(0, giggleBursts(Mood.SAD))
+        assertEquals(0, giggleBursts(Mood.SLEEPY))
+    }
+
+    @Test
+    fun reduceMotionStopsGiggles() {
+        assertEquals(0, giggleBursts(Mood.HAPPY, reduceMotion = true))
+    }
 }

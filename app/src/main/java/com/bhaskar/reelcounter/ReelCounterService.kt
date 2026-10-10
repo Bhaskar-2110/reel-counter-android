@@ -57,7 +57,11 @@ class ReelCounterService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var pendingSwipe: Runnable? = null
     private var screenCheckQueued = false
-    private val lastIndex = HashMap<Platform, Int>()
+    /** Apps whose Reels the user swiped on while blocked, this visit (ends the first-reel grace). */
+    private val scrolledWhileBlocked = HashSet<Platform>()
+
+    /** Furthest video reached in the current visit to each app's Reels/Shorts pager. */
+    private val furthestIndex = HashMap<Platform, Int>()
     private var lastCountAt = 0L
     private var lastBlockAt = 0L
 
@@ -69,10 +73,14 @@ class ReelCounterService : AccessibilityService() {
     private var timedPlatform: Platform? = null
     private var timedSince = 0L
     private var lastLength = -1
+    private var lastSignature: String? = null
+    private var pendingSignature: String? = null
+    private val seenSignatures = LinkedHashSet<String>()
     private var lastPosition = -1
 
     private lateinit var windowManager: WindowManager
     private var island: IslandView? = null
+    private var islandTouch: View? = null
     private var blockView: View? = null
     private var pauseView: View? = null
     private var pauseTick: Runnable? = null
@@ -99,6 +107,10 @@ class ReelCounterService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        CountStore.markServiceStarted(this)
+        // After a restart (an update, or the phone killing the app), the app already on screen
+        // isn't a new open.
+        foregroundPkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
         KeepAliveService.start(this)
         ContextCompat.registerReceiver(
             this, screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED,
@@ -161,6 +173,20 @@ class ReelCounterService : AccessibilityService() {
     private fun handleEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
+        if (DEBUG_LOG && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            Log.d(DBG, "WIN pkg=$pkg cls=${event.className} fg=$foregroundPkg")
+        }
+        if (DEBUG_LOG && (Platform.forPackage(pkg) != null || pkg in DEBUG_PACKAGES) &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+        ) {
+            val src = event.source
+            val r = Rect().also { src?.getBoundsInScreen(it) }
+            Log.d(
+                DBG, "EV ${AccessibilityEvent.eventTypeToString(event.eventType)} pkg=$pkg cls=${event.className} " +
+                    "id=${src?.viewIdResourceName} desc=${src?.contentDescription?.toString()?.take(40)} " +
+                    "from=${event.fromIndex} to=${event.toIndex} items=${event.itemCount} dy=${event.scrollDeltaY} h=${r.height()}",
+            )
+        }
         val platform = Platform.forPackage(pkg)?.takeIf { CountStore.isTracked(this, it) }
 
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) onForegroundChanged(pkg, platform)
@@ -173,8 +199,10 @@ class ReelCounterService : AccessibilityService() {
             }
 
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
-                // Apps tracked by their progress bar are counted in checkScreen instead.
-                if (platform == null || platform.progressBarId != null || !isFullScreen(event.source)) return
+                // Apps tracked by their progress bar or on-screen text are counted in checkScreen.
+                if (platform == null || platform.progressBarId != null || platform.signatureRootId != null ||
+                    !isFullScreen(event.source)
+                ) return
                 val index = event.fromIndex
                 pendingSwipe?.let { handler.removeCallbacks(it) }
                 val settle = Runnable { safely("swipe") { onSwipeSettled(platform, index) } }
@@ -184,11 +212,19 @@ class ReelCounterService : AccessibilityService() {
         }
     }
 
+    /**
+     * A swipe settled on video [index] of the pager. Only a video further along than any seen
+     * in this visit counts: swiping back to re-watch one doesn't (found on a OnePlus, 8 Oct).
+     */
     private fun onSwipeSettled(platform: Platform, index: Int) {
         if (shortsPlatformOnScreen() != platform) return
-        if (index >= 0 && lastIndex[platform] == index) return
-        lastIndex[platform] = index
-        countReel(platform)
+        if (index >= 0) {
+            if (index <= (furthestIndex[platform] ?: -1)) return
+            furthestIndex[platform] = index
+        }
+        // Instagram reports its first video (index 0) as a scroll when Reels opens; that isn't
+        // the user swiping on, so it doesn't end the "allow first reel" grace.
+        countReel(platform, swipedOn = index != 0)
     }
 
     /**
@@ -200,7 +236,9 @@ class ReelCounterService : AccessibilityService() {
     private fun checkProgress(platform: Platform, root: AccessibilityNodeInfo) {
         val id = platform.progressBarId ?: return
         val bar = root.findAccessibilityNodeInfosByViewId(id).firstOrNull { it.isVisibleToUser } ?: return
-        val (position, length) = readProgress(bar) ?: return
+        val read = readProgress(bar)
+        if (DEBUG_LOG) Log.d(DBG, "PROGRESS $read last=$lastLength/$lastPosition")
+        val (position, length) = read ?: return
         val previousLength = lastLength
         val previousPosition = lastPosition
         lastLength = length
@@ -214,8 +252,61 @@ class ReelCounterService : AccessibilityService() {
         if (newVideo) countReel(platform)
     }
 
+    /**
+     * For apps that send no scroll events and have no readable progress bar (Snapchat): reads
+     * the first few lines of text in the video viewer (creator, sound, like count) and counts a
+     * new video when they change. A video looping or pausing keeps the same text, so it isn't
+     * counted again.
+     */
+    private fun checkSignature(platform: Platform, root: AccessibilityNodeInfo) {
+        val id = platform.signatureRootId ?: return
+        val viewer = root.findAccessibilityNodeInfosByViewId(id).firstOrNull { it.refresh(); it.isVisibleToUser } ?: return
+        val texts = ArrayList<String>()
+        collectTexts(viewer, texts, 0)
+        if (texts.isEmpty()) return
+        val signature = texts.joinToString("|")
+        if (DEBUG_LOG) Log.d(DBG, "SIGNATURE $signature (was $lastSignature)")
+        val previous = lastSignature
+        if (previous == null) {
+            lastSignature = signature
+            seenSignatures += signature
+            return
+        }
+        if (signature == previous) {
+            pendingSignature = null
+            return
+        }
+        // Mid-swipe, Snapchat can briefly show half the old text and half the new; only a text
+        // seen on two checks in a row is a new video.
+        if (signature != pendingSignature) {
+            pendingSignature = signature
+            return
+        }
+        lastSignature = signature
+        pendingSignature = null
+        // Swiping back to a video already watched in this visit doesn't count again.
+        if (!seenSignatures.add(signature)) return
+        if (seenSignatures.size > MAX_SEEN_SIGNATURES) seenSignatures.remove(seenSignatures.first())
+        countReel(platform)
+    }
+
+    /** The first [SIGNATURE_TEXTS] texts in [node]'s subtree, freshly read (see [readProgress]). */
+    private fun collectTexts(node: AccessibilityNodeInfo, out: MutableList<String>, depth: Int) {
+        if (out.size >= SIGNATURE_TEXTS || depth > 12) return
+        node.refresh()
+        node.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { out += it }
+        for (i in 0 until node.childCount) {
+            if (out.size >= SIGNATURE_TEXTS) return
+            node.getChild(i)?.let { collectTexts(it, out, depth + 1) }
+        }
+    }
+
     /** Position and length in seconds from the first description in [node]'s subtree that has them. */
     private fun readProgress(node: AccessibilityNodeInfo, depth: Int = 0): Pair<Int, Int>? {
+        // Android caches screen content, and YouTube doesn't announce that the bar's text
+        // changed, so without a refresh the same "6 seconds of 15 seconds" comes back forever
+        // and no new Short is ever spotted.
+        node.refresh()
         node.contentDescription?.toString()?.let { desc ->
             val n = Regex("\\d+").findAll(desc).map { it.value.toInt() }.toList()
             when (n.size) {
@@ -232,10 +323,13 @@ class ReelCounterService : AccessibilityService() {
     }
 
     /** Adds one reel for [platform] and reacts: eye moods, a buzz near the limit, blocking at it. */
-    private fun countReel(platform: Platform) {
+    private fun countReel(platform: Platform, swipedOn: Boolean = true) {
         val now = SystemClock.elapsedRealtime()
+        if (DEBUG_LOG) Log.d(DBG, "COUNT? $platform gap=${now - lastCountAt}")
         if (now - lastCountAt < MIN_GAP_MS) return
         lastCountAt = now
+        // Swiping on while blocked ends the "first reel allowed" grace (see checkScreen).
+        if (swipedOn && Blocking.reason(this, platform) != null) scrolledWhileBlocked += platform
         val before = CountStore.limitProgress(this, platform)
         CountStore.increment(this, platform)
         val after = CountStore.limitProgress(this, platform)
@@ -314,11 +408,12 @@ class ReelCounterService : AccessibilityService() {
 
         // Over the limit, apps that are nothing but short videos stay closed. Other apps open
         // normally; only their Reels/Shorts/Spotlight screen is blocked (see checkScreen).
-        if (CountStore.isOverLimit(this, platform) && platform.isWholeApp) {
-            block(platform)
+        Blocking.reason(this, platform)?.takeIf { platform.isWholeApp }?.let {
+            block(platform, reason = it)
             return
         }
         val opens = CountStore.incrementOpens(this)
+        if (DEBUG_LOG) Log.d(DBG, "OPEN #$opens $platform from previous=$previous")
         val seconds = CountStore.pauseSecondsFor(opens)
         if (seconds > 0 && CountStore.pauseOnOpen(this)) showPauseScreen(opens, seconds, platform)
     }
@@ -401,6 +496,7 @@ class ReelCounterService : AccessibilityService() {
             return@safely
         }
         if (sessionStart == 0L) sessionStart = SystemClock.elapsedRealtime()
+        CountStore.markSeen(this, front)
         startTiming(front)
         if (System.currentTimeMillis() - timedSince > TIME_SAVE_MS) flushTime()
         if (timeProgress(front) >= 1f) {
@@ -409,11 +505,24 @@ class ReelCounterService : AccessibilityService() {
         }
         warnNearTimeLimit(front)
         val onShorts = isShortsScreen(front, root)
+        // Leaving the pager resets its video numbering, so start afresh next time.
+        if (!onShorts) furthestIndex.remove(front)
+        if (DEBUG_LOG) Log.d(DBG, "CHECK $front onShorts=$onShorts block=${Blocking.reason(this, front)} time=${todayTimeMs(front) / 1000}s badge=${island != null}")
         if (onShorts) checkProgress(front, root) else lastLength = -1
-        val overLimit = CountStore.isOverLimit(this, front)
+        if (onShorts) checkSignature(front, root) else {
+            lastSignature = null
+            pendingSignature = null
+            seenSignatures.clear()
+        }
+        val reason = Blocking.reason(this, front)
+        if (!onShorts) scrolledWhileBlocked.remove(front)
+        // "Allow a reel someone sends you": while blocked, the first video of a visit plays;
+        // swiping on (see countReel) blocks.
+        val allowThisOne = reason != null && !front.isWholeApp && Blocking.allowFirst(this, front) &&
+            front !in scrolledWhileBlocked
         val angryHold = island != null && SystemClock.elapsedRealtime() < angryHoldUntil
         when {
-            overLimit && !angryHold && onShorts -> block(front)
+            reason != null && !angryHold && onShorts && !allowThisOne -> block(front, reason = reason)
             CountStore.showBadge(this) -> showIsland(front)
             else -> hideBadge()
         }
@@ -428,7 +537,8 @@ class ReelCounterService : AccessibilityService() {
     private fun isShortsScreen(platform: Platform, root: AccessibilityNodeInfo): Boolean {
         if (platform.isWholeApp) return true
         return platform.shortsViewIds.any { id ->
-            root.findAccessibilityNodeInfosByViewId(id).any { it.isVisibleToUser }
+            // Fresh read: Android's cached copy can say a screen is still visible after leaving it.
+            root.findAccessibilityNodeInfosByViewId(id).any { it.refresh(); it.isVisibleToUser }
         } || hasLargeViewWithIdHint(root, platform.shortsIdHints)
     }
 
@@ -473,7 +583,8 @@ class ReelCounterService : AccessibilityService() {
      * the home screen). When [timeUp], the app's daily time limit is used up, so the whole app is
      * left for the home screen.
      */
-    private fun block(platform: Platform, timeUp: Boolean = false) {
+    private fun block(platform: Platform, timeUp: Boolean = false, reason: BlockReason? = null) {
+        if (DEBUG_LOG) Log.d(DBG, "BLOCK $platform timeUp=$timeUp")
         hideBadge()
         hidePauseScreen()
         val now = SystemClock.elapsedRealtime()
@@ -486,7 +597,7 @@ class ReelCounterService : AccessibilityService() {
         lastBlockAt = now
         if (timeUp) CountStore.markLimitHit(this, LocalDate.now())
         performGlobalAction(if (timeUp || platform.isWholeApp) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK)
-        showBlockScreen(platform, timeUp)
+        showBlockScreen(platform, timeUp, reason)
         handler.removeCallbacks(recheck)
         handler.postDelayed(recheck, BLOCK_GAP_MS)
     }
@@ -494,10 +605,9 @@ class ReelCounterService : AccessibilityService() {
     /**
      * The block screen, as in the design: a badge, Iris (angry for 2 s, then sad), a headline
      * naming the limit, and a big button back to the app's home (or just "Got it" when the whole
-     * app is closed). Blocks the user chose themselves (Done for today, Focus) get a calm badge
-     * and a happy Iris instead.
+     * app is closed).
      */
-    private fun showBlockScreen(platform: Platform, timeUp: Boolean) {
+    private fun showBlockScreen(platform: Platform, timeUp: Boolean, reason: BlockReason? = null) {
         val view = blockView ?: run {
             val themed = ContextThemeWrapper(this, R.style.Theme_ReelCounter)
             val v = LayoutInflater.from(themed).inflate(R.layout.overlay_block, null)
@@ -517,15 +627,43 @@ class ReelCounterService : AccessibilityService() {
 
         val eyes = view.findViewById<EyesView>(R.id.blockEyes)
         handler.removeCallbacks(settleToSad)
-        eyes.setMood(Mood.ANGRY)
-        settleEyes = eyes
-        handler.postDelayed(settleToSad, ANGRY_HOLD_MS + 200)
+        // A limit hit makes Iris angry, then sad. Blocks the user chose (always off, no-reel
+        // hours) are calm: Iris is fine with it, or sleepy during no-reel hours.
+        val chosen = !timeUp && (reason is BlockReason.Always || reason is BlockReason.Schedule)
+        when (reason) {
+            is BlockReason.Always -> eyes.setMood(Mood.HAPPY)
+            is BlockReason.Schedule -> eyes.setMood(Mood.SLEEPY)
+            else -> {
+                eyes.setMood(Mood.ANGRY)
+                settleEyes = eyes
+                handler.postDelayed(settleToSad, ANGRY_HOLD_MS + 200)
+            }
+        }
 
-        view.findViewById<TextView>(R.id.blockBadge).setText(if (timeUp) R.string.badge_time_up else R.string.badge_limit)
-        view.findViewById<TextView>(R.id.blockTitle).text =
-            if (timeUp) getString(R.string.block_title_time, platform.shortName) else getString(R.string.block_title)
+        view.findViewById<TextView>(R.id.blockBadge).apply {
+            text = when {
+                timeUp -> getString(R.string.badge_time_up)
+                reason is BlockReason.Always -> getString(R.string.badge_always)
+                reason is BlockReason.Schedule -> reason.name
+                else -> getString(R.string.badge_limit)
+            }
+            setBackgroundResource(if (chosen) R.drawable.badge_calm else R.drawable.badge_angry)
+            setTextColor(getColor(if (chosen) R.color.night_calm else R.color.night_angry))
+        }
+        val timeFormat = android.text.format.DateFormat.getTimeFormat(this)
+        view.findViewById<TextView>(R.id.blockTitle).text = when {
+            timeUp -> getString(R.string.block_title_time, platform.shortName)
+            reason is BlockReason.Always -> getString(R.string.block_title_always, platform.shortName)
+            reason is BlockReason.Schedule -> getString(
+                R.string.block_title_schedule,
+                timeFormat.format(java.util.Date.from(reason.until.atDate(LocalDate.now()).atZone(java.time.ZoneId.systemDefault()).toInstant())),
+            )
+            else -> getString(R.string.block_title)
+        }
         val stillWorks = if (appClosed) getString(R.string.block_opens_tomorrow, platform.shortName) else getString(R.string.block_still_works)
         view.findViewById<TextView>(R.id.blockMessage).text = when {
+            reason is BlockReason.Always -> getString(R.string.block_message_always) + " " + stillWorks
+            reason is BlockReason.Schedule -> getString(R.string.block_message_schedule, reason.name) + " " + stillWorks
             timeUp -> getString(R.string.block_message_time, CountStore.appTimeLimitMinutes(this, platform), platform.shortName) +
                 " " + stillWorks
             own > 0 && appCount >= own -> getString(R.string.block_message_app, own, platform.shortName) + " " + stillWorks
@@ -574,7 +712,8 @@ class ReelCounterService : AccessibilityService() {
             pleadUntil = 0L
         }
         // In a reel app but no reel for a while: Iris dozes off until the next one.
-        val active = maxOf(lastCountAt, sessionStart)
+        // A touch on the counter counts as being awake too (the Iris spec).
+        val active = maxOf(lastCountAt, sessionStart, view.lastTouchAt)
         view.sleepy = active > 0L && now - active > SLEEPY_AFTER_MS
     }
 
@@ -605,17 +744,38 @@ class ReelCounterService : AccessibilityService() {
         fun clampY(y: Int) = y.coerceIn(minOf(dock.y, -padPx), screen.y - win + padPx)
 
         val view = IslandView(this, pad)
+        // Two windows: the drawing (face plus room for its glow and movement) lets every touch
+        // through, and an invisible pad exactly over the face takes the touches. Only the face
+        // itself blocks the app underneath (found on a OnePlus: a bigger touch area covered
+        // Instagram's "Friends" tab).
         val params = WindowManager.LayoutParams(
             win,
             win,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            ISLAND_FLAGS,
+            ISLAND_FLAGS or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             val saved = CountStore.islandPosition(this@ReelCounterService)
             x = saved?.let { clampX(it.x) } ?: dock.x
             y = saved?.let { clampY(it.y) } ?: dock.y
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+
+        val touchPad = View(this)
+        val faceSize = size.roundToInt()
+        val touchParams = WindowManager.LayoutParams(
+            faceSize,
+            faceSize,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            ISLAND_FLAGS,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = params.x + padPx
+            y = params.y + padPx
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
@@ -631,9 +791,12 @@ class ReelCounterService : AccessibilityService() {
         fun moveTo(x: Int, y: Int) {
             params.x = x
             params.y = y
+            touchParams.x = x + padPx
+            touchParams.y = y + padPx
             if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
+            if (touchPad.isAttachedToWindow) windowManager.updateViewLayout(touchPad, touchParams)
         }
-        view.setOnTouchListener { v, e ->
+        touchPad.setOnTouchListener { v, e ->
             // Iris watches the finger on her, as in the demo.
             if (e.actionMasked == MotionEvent.ACTION_DOWN || e.actionMasked == MotionEvent.ACTION_MOVE) view.watch(e.rawX, e.rawY)
             when (e.actionMasked) {
@@ -676,7 +839,7 @@ class ReelCounterService : AccessibilityService() {
                             CountStore.setIslandPosition(this, Point(params.x, params.y))
                         }
                     } else if (e.actionMasked == MotionEvent.ACTION_UP) {
-                        view.poke(e.x, e.y)
+                        view.poke(e.x + padPx, e.y + padPx)
                         v.performClick()
                     }
                 }
@@ -684,6 +847,8 @@ class ReelCounterService : AccessibilityService() {
             true
         }
         windowManager.addView(view, params)
+        windowManager.addView(touchPad, touchParams)
+        islandTouch = touchPad
         return view
     }
 
@@ -723,6 +888,8 @@ class ReelCounterService : AccessibilityService() {
         handler.removeCallbacks(pollWhileVisible)
         val leaving = island ?: return
         island = null
+        islandTouch?.let { removeOverlay(it) }
+        islandTouch = null
         leaving.dismiss { removeOverlay(leaving) }
     }
 
@@ -770,6 +937,11 @@ class ReelCounterService : AccessibilityService() {
 
     private companion object {
         const val TAG = "ReelCounterService"
+
+        /** Test builds only: logs what the service sees (tag RCDBG). Must be false in releases. */
+        const val DEBUG_LOG = false
+        const val DBG = "RCDBG"
+        val DEBUG_PACKAGES = setOf("com.snapchat.android")
         const val SYSTEM_UI = "com.android.systemui"
 
         /**
@@ -813,6 +985,10 @@ class ReelCounterService : AccessibilityService() {
         const val POLL_MS = 1500L
         const val BLOCK_GAP_MS = 1500L
         const val MAX_NODES_SCANNED = 600
+
+        /** Lines of text that identify a video in [checkSignature] (title, creator · sound). */
+        const val SIGNATURE_TEXTS = 2
+        const val MAX_SEEN_SIGNATURES = 200
 
         /** At the limit, time for Iris's surprise, huff and anger before the block screen. */
         const val ANGRY_HOLD_MS = 2200L

@@ -29,6 +29,7 @@ class TodayWidget : AppWidgetProvider() {
                     else ctx.getString(R.string.widget_of_limit, data.total, data.limit),
                 )
                 WidgetData.showProgress(this, data.progress, R.id.barOk, R.id.barWarn, R.id.barOver)
+                WidgetData.showNudge(ctx, this, data)
 
                 setTextViewText(R.id.timeText, ctx.getString(R.string.widget_time_today, WidgetData.formatDuration(ctx, data.timeMs)))
                 setTextViewText(

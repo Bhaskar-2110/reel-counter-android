@@ -71,9 +71,10 @@ class IrisRig(var reduceMotion: Boolean = false) {
     val fy = Spring(0f, 130f, .5f)
     val fr = Spring(0f, 120f, .45f)
     val fs = Spring(1f, 200f, .5f)
-    // Jelly: the squash spring is soft and barely damped so Iris keeps jiggling after a bump,
+    // Jelly: the squash spring is soft and lightly damped so Iris keeps jiggling after a bump,
+    // toned down after seeing it on a phone (8 Oct): at big sizes stronger looked broken,
     // and [jelly] leans her top behind her base when she moves sideways (a skew), then sways back.
-    val sq = Spring(0f, 170f, .18f)
+    val sq = Spring(0f, 190f, .24f)
     val jelly = Spring(0f, 150f, .2f)
     val tint = Spring(0f, 40f, 1f)
     val wet = Spring(0f, 30f, 1f)
@@ -146,9 +147,10 @@ class IrisRig(var reduceMotion: Boolean = false) {
     private var tearAt = rnd(1f, 3f)
 
     // Giggles: a burst of quick squishes when happy.
-    private var giggleAt = rnd(3f, 6f)
+    private var giggleAt = rnd(2f, 4f)
     private var gigglesLeft = 0
     private var nextGiggle = 0f
+    private var giggleStrength = 1f
 
     private var dragX = 0f
     private var dragY = 0f
@@ -204,7 +206,7 @@ class IrisRig(var reduceMotion: Boolean = false) {
         popNumber()
         wake()
         fy.v -= 1.4f
-        sq.v += 6f
+        sq.v += 5f
         // The eyes squish with the body: stretched on the hop.
         for (e in eyes) {
             e.sy.v += 2.5f
@@ -254,7 +256,7 @@ class IrisRig(var reduceMotion: Boolean = false) {
         fx.v += -lx * 2f
         squeezeUntil = t + if (m == Mood.ANGRY) .12f else .22f
         when (m) {
-            Mood.HAPPY -> { fr.v += 3f; trigger(Mood.HAPPY, .9f); giggle(4) }
+            Mood.HAPPY -> { fr.v += 3f; trigger(Mood.HAPPY, .9f); giggleStrength = 1f; giggle(4) }
             Mood.CURIOUS -> trigger(Mood.SURPRISED, .6f)
             Mood.WORRIED -> { fx.v += -dir * 2.5f; glance(-dir, .3f, .7f) }
             Mood.SAD -> glance(-dir * .8f, .7f, 1.2f)
@@ -328,7 +330,7 @@ class IrisRig(var reduceMotion: Boolean = false) {
         ts += sin(t * 1.5f) * .01f * a
         // Jelly: a slow squishy breath, and she stretches tall moving up and squats moving down.
         tsq += sin(t * 2.3f) * .015f * a + (fy.v * .05f).coerceIn(-.12f, .12f) * a
-        jelly.t = (-fx.v * .08f).coerceIn(-.25f, .25f) * a
+        jelly.t = (-fx.v * .05f).coerceIn(-.14f, .14f) * a
         updateGiggles(m, a)
         when (m) {
             Mood.HAPPY -> { tr += sin(t * 1.7f) * .035f * a; ty -= abs(sin(t * 1.7f)) * .01f * a }
@@ -461,23 +463,37 @@ class IrisRig(var reduceMotion: Boolean = false) {
     }
 
     /**
-     * When happy, Iris now and then giggles: a few quick squishes, alternating, with her lower
-     * lids pushing up. Each giggle is a kick to the jelly springs, so it wobbles on afterwards.
+     * Iris giggles now and then: a few quick squishes, alternating side to side, with a little
+     * hop and her lower lids pushing up. Each giggle kicks the jelly springs, so she wobbles on
+     * afterwards. Happy giggles most and hardest; curious and pleading giggle shyly; worried
+     * gives the odd nervous giggle. Sad, angry, sleepy, surprised and electrocuted don't.
      */
     private fun updateGiggles(m: Mood, a: Float) {
         if (a == 0f) return
-        if (gigglesLeft == 0 && m == Mood.HAPPY && t > giggleAt) giggle(Random.nextInt(2, 5))
+        val style = GIGGLES[m]
+        if (gigglesLeft == 0 && style != null && t > giggleAt) {
+            giggleStrength = style.strength
+            giggle(Random.nextInt(style.minPulses, style.maxPulses + 1))
+        }
         if (gigglesLeft > 0 && t >= nextGiggle) {
             val dir = if (gigglesLeft % 2 == 0) 1f else -1f
-            sq.v += 3.2f * dir
-            fr.v += 1.2f * dir
-            fy.v -= .5f
-            for (e in eyes) e.low.v += 2f
+            val k = giggleStrength
+            sq.v += 3f * k * dir
+            fr.v += 1.2f * k * dir
+            fy.v -= .6f * k
+            for (e in eyes) e.low.v += 3f * k
             gigglesLeft--
             nextGiggle = t + .12f
-            if (gigglesLeft == 0) giggleAt = t + rnd(4f, 8f)
+            if (gigglesLeft == 0) {
+                val next = style ?: GIGGLES.getValue(Mood.HAPPY)
+                giggleAt = t + rnd(next.minGap, next.maxGap)
+                giggleStrength = 1f
+            }
         }
     }
+
+    /** How a mood giggles: pulses per burst, seconds between bursts, and how hard. */
+    private class GiggleStyle(val minPulses: Int, val maxPulses: Int, val minGap: Float, val maxGap: Float, val strength: Float)
 
     private fun saccade(m: Mood) {
         when (m) {
@@ -569,6 +585,13 @@ class IrisRig(var reduceMotion: Boolean = false) {
         /** Crossing these shares of the limit plays Surprised. */
         private val BANDS = floatArrayOf(.3f, .6f, .85f)
         private const val MAX_TEARS = 4
+
+        private val GIGGLES = mapOf(
+            Mood.HAPPY to GiggleStyle(3, 5, 3f, 6f, 1f),
+            Mood.CURIOUS to GiggleStyle(2, 3, 5f, 9f, .75f),
+            Mood.PLEADING to GiggleStyle(2, 3, 5f, 9f, .6f),
+            Mood.WORRIED to GiggleStyle(2, 2, 7f, 11f, .5f),
+        )
 
         /** Seconds of anger at the limit before Iris turns sad. */
         private const val SAD_AFTER_LIMIT = 8f
