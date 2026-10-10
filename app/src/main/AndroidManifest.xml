@@ -68,6 +68,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".AppDetailActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".UsageActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />

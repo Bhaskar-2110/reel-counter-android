@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Onboarding (design_docs/reel-counter-onboarding.html): progress dots, Iris, a big headline,
      a line of text, a step-specific area, and a primary and a ghost button. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The outer frame keeps clear of the status and navigation bars (fitsSystemWindows replaces a
+     view's own padding, so the screen's margins live on the inner layout). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg"
-    android:fitsSystemWindows="true"
+    android:fitsSystemWindows="true">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical"
     android:paddingHorizontal="22dp"
     android:paddingTop="20dp"
@@ -28,6 +34,7 @@
             android:id="@+id/body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="vertical"
             android:paddingTop="18dp">
 
@@ -77,3 +84,4 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 </LinearLayout>
+</FrameLayout>

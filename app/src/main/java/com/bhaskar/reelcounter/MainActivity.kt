@@ -35,6 +35,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 /**
  * The main screen, in three tabs like the design mockups:
@@ -68,13 +69,19 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         binding.navInsights.setOnClickListener { showTab(Tab.INSIGHTS) }
         binding.navSettings.setOnClickListener { showTab(Tab.SETTINGS) }
 
-        binding.enableButton.setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-        binding.bannerFix.setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        binding.enableButton.setOnClickListener { openAccessibilitySettings(this) }
+        binding.a11yHelpButton.setOnClickListener { showAccessibilityHelp(this) }
+        binding.bannerFix.setOnClickListener { openAccessibilitySettings(this) }
         binding.batteryButton.setOnClickListener { requestBackgroundRunning() }
         binding.usageAccessButton.setOnClickListener { openUsageAccessSettings(this) }
         binding.usageDetailsButton.setOnClickListener { startActivity(Intent(this, UsageActivity::class.java)) }
 
         setUpLimitStepper()
+        setUpTrackedApps()
+        binding.addSchedule.setOnClickListener {
+            val id = (Blocking.schedules(this).maxOfOrNull { it.id } ?: 0) + 1
+            editSchedule(NoReelSchedule(id, getString(R.string.schedule_custom), 21 * 60, 23 * 60, NoReelSchedule.EVERY_DAY, true), isNew = true)
+        }
         setUpMoodChips()
         binding.islandPreview.cycle = true
         setUpThemeToggle()
@@ -98,6 +105,8 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
         binding.playDayButton.setOnClickListener { playDay() }
         binding.pauseSwitch.setOnCheckedChangeListener { _, on -> CountStore.setPauseOnOpen(this, on) }
+
+        binding.versionText.text = getString(R.string.version, packageManager.getPackageInfo(packageName, 0).versionName)
 
         // Replays onboarding; counts and settings are kept, each step starts from them.
         binding.tourButton.setOnClickListener {
@@ -197,9 +206,13 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         binding.statusText.setText(if (enabled) R.string.status_on else R.string.status_off)
         binding.statusDetail.setText(if (enabled) R.string.status_on_detail else R.string.status_off_detail)
         binding.enableButton.isVisible = !enabled
+        renderHealth()
+        binding.a11yHelpButton.isVisible = !enabled
         binding.batteryCard.isVisible = !isIgnoringBatteryOptimizations()
 
         renderAppRows(today)
+        renderAppPill(today)
+        renderLimitSuggestion(today, limit)
         renderStreak()
 
         val opens = CountStore.opens(this, today)
@@ -219,14 +232,93 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         }
         binding.weekChart.setData(labels, values, limit)
         val weekTotal = values.sum()
-        binding.weekStats.text = getString(R.string.week_stats, weekTotal / 7, weekTotal)
+        // Average only over days the app was counting (a new install has no history yet).
+        val firstDay = CountStore.firstDay(this)
+        val countedDays = days.count { !it.isBefore(firstDay) }.coerceAtLeast(1)
+        binding.weekStats.text = getString(R.string.week_stats, weekTotal / countedDays, weekTotal)
+        renderReelInsights(today, total)
 
         // Settings: limit stepper and island preview.
         binding.limitValue.text = limit.toString()
         updateQuickChips(limit)
         updateIslandPreview()
+        renderSchedules()
 
         showTab(tab)
+    }
+
+    /**
+     * Diagnostics in Settings: when the counting service last started and last saw a reel app,
+     * and the last crash (if any) with a Copy button, so a problem can be reported from the phone.
+     */
+    private fun renderHealth() {
+        val format = DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault())
+        fun at(millis: Long) = if (millis <= 0L) getString(R.string.health_never)
+        else java.time.Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).format(format)
+        val seen = CountStore.lastSeenAt(this)
+        binding.healthText.text = getString(
+            R.string.health_line,
+            at(CountStore.serviceStartedAt(this)),
+            if (seen > 0L) "${CountStore.lastSeenApp(this)}, ${at(seen)}" else getString(R.string.health_never),
+        )
+        val crash = CrashLog.read(this)
+        binding.crashText.isVisible = crash != null
+        binding.crashButtons.isVisible = crash != null
+        if (crash != null) {
+            binding.crashText.text = getString(R.string.crash_title, crash.substringBefore(" ·").take(16).replace('T', ' '))
+            binding.crashCopy.setOnClickListener {
+                getSystemService(android.content.ClipboardManager::class.java)
+                    .setPrimaryClip(android.content.ClipData.newPlainText("Reel Counter crash", crash))
+                android.widget.Toast.makeText(this, R.string.crash_copied, android.widget.Toast.LENGTH_SHORT).show()
+            }
+            binding.crashClear.setOnClickListener {
+                CrashLog.clear(this)
+                renderHealth()
+            }
+        }
+    }
+
+    /** Under the big number: each counted app's icon and reels today, e.g. [IG] 13 | [YT] 6. */
+    private fun renderAppPill(today: LocalDate) {
+        val pill = binding.appPill
+        pill.removeAllViews()
+        val dp = resources.displayMetrics.density
+        val apps = Platform.entries.filter { CountStore.isTracked(this, it) && iconFor(it) != null }
+        pill.isVisible = apps.isNotEmpty()
+        apps.forEachIndexed { i, platform ->
+            if (i > 0) pill.addView(View(this).apply { setBackgroundColor(getColor(R.color.line)) },
+                LinearLayout.LayoutParams((1 * dp).toInt(), (18 * dp).toInt()).apply { marginStart = (12 * dp).toInt(); marginEnd = (12 * dp).toInt() })
+            pill.addView(ImageView(this).apply { setImageDrawable(iconFor(platform)); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
+                LinearLayout.LayoutParams((20 * dp).toInt(), (20 * dp).toInt()))
+            val count = CountStore.appCount(this, today, platform)
+            pill.addView(TextView(this).apply {
+                text = count.toString()
+                setTextColor(getColor(R.color.fg))
+                textSize = 15f
+                typeface = resources.getFont(R.font.bricolage_grotesque)
+                fontVariationSettings = "'wght' 700"
+                setPadding((6 * dp).toInt(), 0, 0, 0)
+                contentDescription = "${platform.shortName} " + resources.getQuantityString(R.plurals.reels_today_short, count, count)
+            })
+        }
+        pill.setOnClickListener { showTab(Tab.INSIGHTS) }
+    }
+
+    /**
+     * Settings → a suggested overall limit (idea from Regain): about three quarters of the
+     * average on recent days, shown only when it's below the current limit.
+     */
+    private fun renderLimitSuggestion(today: LocalDate, limit: Int) {
+        val firstDay = CountStore.firstDay(this)
+        val past = (1..7).map { today.minusDays(it.toLong()) }.filter { !it.isBefore(firstDay) }
+        val avg = if (past.isEmpty()) 0.0 else past.map { CountStore.total(this, it) }.average()
+        val suggested = ((avg * 0.75 / 5).roundToInt() * 5).coerceAtLeast(5)
+        val show = past.size >= 2 && avg >= 5 && suggested < limit
+        binding.limitSuggestion.isVisible = show
+        if (show) {
+            binding.limitSuggestion.text = getString(R.string.limit_suggestion, avg.roundToInt(), suggested)
+            binding.limitSuggestion.setOnClickListener { CountStore.setLimit(this, suggested) }
+        }
     }
 
     /** "Reels by app": icon, name, time today, and a chip with the app's own limits ("5 / 20"). */
@@ -240,9 +332,12 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             val row = layoutInflater.inflate(R.layout.row_app_limit, binding.appRows, false)
             row.findViewById<ImageView>(R.id.appIcon).setImageDrawable(icon)
             row.findViewById<TextView>(R.id.appName).text = platform.shortName
-            row.findViewById<TextView>(R.id.appTime).text =
-                if (timeMs >= 60_000) getString(R.string.app_time_today, formatDuration(timeMs))
-                else resources.getQuantityString(R.plurals.reels_today_short, count, count)
+            // Reels and time together, like "12 reels · 4 min" (the count used to vanish once the
+            // app had a minute of use).
+            row.findViewById<TextView>(R.id.appTime).text = listOfNotNull(
+                resources.getQuantityString(R.plurals.reels_today_short, count, count),
+                formatDuration(timeMs).takeIf { timeMs >= 60_000 },
+            ).joinToString(" · ")
 
             val own = CountStore.appLimit(this, platform)
             val timeLimit = CountStore.appTimeLimitMinutes(this, platform)
@@ -256,53 +351,50 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
                     timeLimit.takeIf { it > 0 }?.let { getString(R.string.app_limit_time_short, it) },
                 ).joinToString(" · ").ifEmpty { getString(R.string.app_limit_none) }
                 setTextColor(if (own > 0 || timeLimit > 0) MoodColors.forProgress(context, share) else getColor(R.color.muted))
-                setOnClickListener { editAppLimit(platform) }
+                setOnClickListener { AppDetailActivity.open(this@MainActivity, platform) }
             }
-            row.setOnClickListener { editAppLimit(platform) }
+            row.setOnClickListener { AppDetailActivity.open(this@MainActivity, platform) }
             binding.appRows.addView(row)
         }
     }
 
-    /** One dialog for both of an app's own limits: reels per day and minutes per day. */
-    private fun editAppLimit(platform: Platform) {
-        fun field(hint: Int, current: Int): Pair<TextInputLayout, TextInputEditText> {
-            val edit = TextInputEditText(this).apply {
-                inputType = InputType.TYPE_CLASS_NUMBER
-                filters = arrayOf(InputFilter.LengthFilter(3))
-                if (current > 0) setText(current.toString())
-            }
-            val layout = TextInputLayout(this, null, com.google.android.material.R.attr.textInputOutlinedStyle).apply {
-                this.hint = getString(hint)
-                addView(edit)
-            }
-            return layout to edit
+    /**
+     * Insights → Reels today: the total, reels and minutes per app (most first), and reels in
+     * each hour of the day, the current hour highlighted.
+     */
+    private fun renderReelInsights(today: LocalDate, total: Int) {
+        val apps = Platform.entries
+            .map { Triple(it, CountStore.appCount(this, today, it), CountStore.appTime(this, today, it)) }
+            .filter { (_, reels, ms) -> reels > 0 || ms >= 60_000 }
+            .sortedByDescending { it.second }
+        binding.reelsTotal.text = resources.getQuantityString(R.plurals.reels_today_short, total, total)
+        binding.reelsSub.text = if (apps.isEmpty()) getString(R.string.reels_none_yet)
+        else getString(R.string.reels_sub, formatDuration(apps.sumOf { it.third }), CountStore.opens(this, today))
+        binding.reelsApps.removeAllViews()
+        for ((platform, reels, ms) in apps) {
+            val row = layoutInflater.inflate(R.layout.row_usage, binding.reelsApps, false)
+            row.findViewById<ImageView>(R.id.usageIcon).setImageDrawable(iconFor(platform))
+            row.findViewById<TextView>(R.id.usageName).text = platform.shortName
+            row.findViewById<TextView>(R.id.usageOpens).text = formatDuration(ms)
+            row.findViewById<TextView>(R.id.usageTime).text = resources.getQuantityString(R.plurals.reels_today_short, reels, reels)
+            binding.reelsApps.addView(row)
         }
-        val (reelsBox, reelsInput) = field(R.string.app_limit_reels_hint, CountStore.appLimit(this, platform))
-        val (timeBox, timeInput) = field(R.string.app_limit_time_hint, CountStore.appTimeLimitMinutes(this, platform))
-        val pad = (20 * resources.displayMetrics.density).toInt()
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad / 2, pad, 0)
-            addView(reelsBox)
-            addView(timeBox, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = pad / 2 })
+        val hours = CountStore.hourly(this, today)
+        val is24 = android.text.format.DateFormat.is24HourFormat(this)
+        val hourLabels = (0 until 24).map { h ->
+            when {
+                h % 6 != 0 -> ""
+                is24 -> "%02d".format(h)
+                h == 0 -> "12am"
+                h == 12 -> "12pm"
+                else -> if (h < 12) "${h}am" else "${h - 12}pm"
+            }
         }
-        fun valueOf(input: TextInputEditText) = input.text.toString().toIntOrNull()?.takeIf { it in 1..999 } ?: 0
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.app_limits_title, platform.shortName))
-            .setMessage(getString(R.string.app_limits_message, platform.shortName))
-            .setView(box)
-            .setPositiveButton(R.string.app_limit_set) { _, _ ->
-                CountStore.setAppLimit(this, platform, valueOf(reelsInput))
-                CountStore.setAppTimeLimitMinutes(this, platform, valueOf(timeInput))
-            }
-            .setNeutralButton(R.string.app_limits_clear) { _, _ ->
-                CountStore.setAppLimit(this, platform, 0)
-                CountStore.setAppTimeLimitMinutes(this, platform, 0)
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        binding.hourChart.setData(
+            hours.map { it.toFloat() }.toFloatArray(),
+            hourLabels,
+            highlight = java.time.LocalTime.now().hour,
+        )
     }
 
     private fun iconFor(platform: Platform) = platform.packages.firstNotNullOfOrNull { pkg ->
@@ -382,11 +474,129 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
         binding.limitMinus.setOnClickListener { CountStore.setLimit(this, (CountStore.limit(this) - 5).coerceAtLeast(5)) }
         binding.limitPlus.setOnClickListener { CountStore.setLimit(this, (CountStore.limit(this) + 5).coerceAtMost(500)) }
         QUICK_LIMITS.forEach { value ->
-            binding.limitQuick.addView(Chip(this).apply {
+            binding.limitQuick.addView(filterChip(this).apply {
                 id = View.generateViewId()
                 text = value.toString()
                 isCheckable = true
                 setOnClickListener { CountStore.setLimit(this@MainActivity, value) }
+            })
+        }
+    }
+
+    // No-reel hours
+
+    private fun timeText(minute: Int): String =
+        android.text.format.DateFormat.getTimeFormat(this).format(
+            java.util.Date.from(java.time.LocalTime.of(minute / 60, minute % 60).atDate(LocalDate.now()).atZone(ZoneId.systemDefault()).toInstant()),
+        )
+
+    private fun daysText(days: Int): String = when (days) {
+        NoReelSchedule.EVERY_DAY -> getString(R.string.schedule_every_day)
+        NoReelSchedule.WEEKDAYS -> getString(R.string.schedule_weekdays)
+        0b1100000 -> getString(R.string.schedule_weekends)
+        else -> java.time.DayOfWeek.entries.filter { days and (1 shl (it.value - 1)) != 0 }
+            .joinToString(" ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
+    }
+
+    /** Settings → No-reel hours: one row per schedule with its times, days and an on/off switch. */
+    private fun renderSchedules() {
+        binding.scheduleRows.removeAllViews()
+        val now = java.time.LocalDateTime.now()
+        for (schedule in Blocking.schedules(this)) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, (8 * resources.displayMetrics.density).toInt(), 0, (8 * resources.displayMetrics.density).toInt())
+                isClickable = true
+                background = getDrawable(android.R.drawable.list_selector_background)
+                setOnClickListener { editSchedule(schedule, isNew = false) }
+            }
+            val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            texts.addView(TextView(this).apply {
+                text = schedule.name
+                setTextColor(getColor(R.color.fg))
+                textSize = 15f
+            })
+            texts.addView(TextView(this).apply {
+                text = if (schedule.isActive(now)) getString(R.string.schedule_active_now, timeText(schedule.endMinute))
+                else "${timeText(schedule.startMinute)} – ${timeText(schedule.endMinute)} · ${daysText(schedule.days)}"
+                setTextColor(getColor(if (schedule.isActive(now)) R.color.accent else R.color.muted))
+                textSize = 13f
+            })
+            row.addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(com.google.android.material.materialswitch.MaterialSwitch(this).apply {
+                isChecked = schedule.enabled
+                contentDescription = schedule.name
+                setOnCheckedChangeListener { _, on -> Blocking.saveSchedule(this@MainActivity, schedule.copy(enabled = on)) }
+            })
+            binding.scheduleRows.addView(row)
+        }
+    }
+
+    /** Change a schedule's start, end and days (and delete it). */
+    private fun editSchedule(original: NoReelSchedule, isNew: Boolean) {
+        var edited = original
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad / 2, pad, 0)
+        }
+        val startButton = com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
+        val endButton = com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
+        fun refresh() {
+            startButton.text = getString(R.string.schedule_starts, timeText(edited.startMinute))
+            endButton.text = getString(R.string.schedule_ends, timeText(edited.endMinute))
+        }
+        fun pick(minute: Int, onPicked: (Int) -> Unit) {
+            val picker = com.google.android.material.timepicker.MaterialTimePicker.Builder()
+                .setTimeFormat(
+                    if (android.text.format.DateFormat.is24HourFormat(this)) com.google.android.material.timepicker.TimeFormat.CLOCK_24H
+                    else com.google.android.material.timepicker.TimeFormat.CLOCK_12H,
+                )
+                .setHour(minute / 60).setMinute(minute % 60).build()
+            picker.addOnPositiveButtonClickListener { onPicked(picker.hour * 60 + picker.minute) }
+            picker.show(supportFragmentManager, "time")
+        }
+        startButton.setOnClickListener { pick(edited.startMinute) { edited = edited.copy(startMinute = it); refresh() } }
+        endButton.setOnClickListener { pick(edited.endMinute) { edited = edited.copy(endMinute = it); refresh() } }
+        refresh()
+        box.addView(startButton)
+        box.addView(endButton)
+        val days = com.google.android.material.chip.ChipGroup(this)
+        java.time.DayOfWeek.entries.forEach { day ->
+            days.addView(filterChip(this).apply {
+                text = day.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                isChecked = edited.runsOn(day)
+                setOnCheckedChangeListener { _, on ->
+                    val bit = 1 shl (day.value - 1)
+                    edited = edited.copy(days = if (on) edited.days or bit else edited.days and bit.inv())
+                }
+            })
+        }
+        box.addView(days)
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(original.name)
+            .setView(box)
+            .setPositiveButton(R.string.schedule_save) { _, _ ->
+                Blocking.saveSchedule(this, edited.copy(enabled = true))
+                renderSchedules()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+        if (!isNew) dialog.setNeutralButton(R.string.schedule_delete) { _, _ ->
+            Blocking.deleteSchedule(this, original.id)
+            renderSchedules()
+        }
+        dialog.show()
+    }
+
+    /** Settings → Apps I count: one tick per supported app (onboarding's choice, changeable). */
+    private fun setUpTrackedApps() {
+        Platform.entries.forEach { platform ->
+            binding.trackedApps.addView(filterChip(this).apply {
+                id = View.generateViewId()
+                text = platform.shortName
+                isChecked = CountStore.isTracked(this@MainActivity, platform)
+                setOnCheckedChangeListener { _, on -> CountStore.setTracked(this@MainActivity, platform, on) }
             })
         }
     }
@@ -563,7 +773,10 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
 
     /** Iris on the Today screen watches the finger wherever it moves. */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN || ev.actionMasked == MotionEvent.ACTION_MOVE) {
+        // (binding isn't set when this screen closes right away to show onboarding.)
+        if (::binding.isInitialized &&
+            (ev.actionMasked == MotionEvent.ACTION_DOWN || ev.actionMasked == MotionEvent.ACTION_MOVE)
+        ) {
             binding.mainEyes.watch(ev.rawX, ev.rawY)
             binding.islandPreview.watch(ev.rawX, ev.rawY)
         }
@@ -585,12 +798,45 @@ class MainActivity : AppCompatActivity(), SharedPreferences.OnSharedPreferenceCh
             return enabled.split(':').any { ComponentName.unflattenFromString(it) == expected }
         }
 
+        /**
+         * Opens Accessibility settings, scrolled to and highlighting Reel Counter on phones that
+         * support it (Pixel and others); elsewhere the extras are ignored and the list opens.
+         */
+        fun openAccessibilitySettings(ctx: Context) {
+            val service = ComponentName(ctx, ReelCounterService::class.java).flattenToString()
+            // A separate task: reopening Reel Counter then shows Reel Counter, not Settings.
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(":settings:fragment_args_key", service)
+                .putExtra(":settings:show_fragment_args", Bundle().apply { putString(":settings:fragment_args_key", service) })
+            ctx.startActivity(intent)
+        }
+
+        /**
+         * Android 13+ blocks Accessibility for apps installed from an APK file ("Restricted
+         * setting") until the user allows it in App info → ⋮. Explains that and opens App info.
+         */
+        fun showAccessibilityHelp(ctx: Context) {
+            MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.a11y_help_title)
+                .setMessage(R.string.a11y_help_text)
+                .setPositiveButton(R.string.a11y_help_open) { _, _ ->
+                    ctx.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+
         fun openUsageAccessSettings(ctx: Context) {
             val forThisApp = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 ctx.startActivity(forThisApp)
             } catch (e: Exception) {
-                ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                ctx.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
         }
     }

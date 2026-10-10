@@ -105,8 +105,13 @@ class IslandView @JvmOverloads constructor(
     /** Kicks the scale, e.g. when previewing Pleading. */
     fun kick() = rig.kick(2f)
 
+    /** When the user last touched the counter (SystemClock.elapsedRealtime), or 0. */
+    var lastTouchAt = 0L
+        private set
+
     /** A tap at ([x], [y]) in this view; only taps on the face itself count. */
     fun poke(x: Float, y: Float) {
+        lastTouchAt = SystemClock.elapsedRealtime()
         val lx = (x - width / 2f) / layout.s
         val ly = (y - centerY()) / layout.s
         if (abs(lx) <= .6f && abs(ly) <= .6f) rig.poke(lx, ly)
@@ -129,6 +134,7 @@ class IslandView @JvmOverloads constructor(
 
     /** The island is being dragged; the finger just moved by ([dx], [dy]) pixels. */
     fun dragBy(dx: Float, dy: Float) {
+        lastTouchAt = SystemClock.elapsedRealtime()
         dragging = true
         lagX += dx
         lagY += dy

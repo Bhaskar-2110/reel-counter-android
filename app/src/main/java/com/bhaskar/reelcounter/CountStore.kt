@@ -45,14 +45,24 @@ object CountStore {
     fun appCount(ctx: Context, day: LocalDate, platform: Platform): Int =
         prefs(ctx).getInt(appKey(day, platform), 0)
 
-    /** Adds one reel to today's total and to [platform]'s own count. */
+    /** Adds one reel to today's total, to [platform]'s own count and to this hour's count. */
     fun increment(ctx: Context, platform: Platform) {
         val today = LocalDate.now()
+        val hour = hourKey(today, java.time.LocalTime.now().hour)
         val p = prefs(ctx)
         p.edit()
             .putInt(key(today), p.getInt(key(today), 0) + 1)
             .putInt(appKey(today, platform), p.getInt(appKey(today, platform), 0) + 1)
+            .putInt(hour, p.getInt(hour, 0) + 1)
             .apply()
+    }
+
+    private fun hourKey(day: LocalDate, hour: Int) = "hour|$day|$hour"
+
+    /** Reels on [day] in each hour, midnight first (recorded from 8 Oct 2026 on). */
+    fun hourly(ctx: Context, day: LocalDate): IntArray {
+        val p = prefs(ctx)
+        return IntArray(24) { p.getInt(hourKey(day, it), 0) }
     }
 
     // Time in each app
@@ -82,9 +92,11 @@ object CountStore {
         editor.apply()
     }
 
+    /** Starts [day] over: reels, opens, time per app, reels per hour and the limit-reached mark. */
     fun resetDay(ctx: Context, day: LocalDate) {
-        val editor = prefs(ctx).edit().remove(key(day)).remove(opensKey(day))
-        Platform.entries.forEach { editor.remove(appKey(day, it)) }
+        val editor = prefs(ctx).edit().remove(key(day)).remove(opensKey(day)).remove("hit|$day")
+        Platform.entries.forEach { editor.remove(appKey(day, it)).remove(appTimeKey(day, it)) }
+        for (h in 0 until 24) editor.remove(hourKey(day, h))
         editor.apply()
     }
 
@@ -134,14 +146,45 @@ object CountStore {
      */
     fun isOnboarded(ctx: Context): Boolean = devicePrefs(ctx).getBoolean(KEY_ONBOARDED, false)
 
-    fun setOnboarded(ctx: Context, value: Boolean = true) =
-        devicePrefs(ctx).edit().putBoolean(KEY_ONBOARDED, value).apply()
+    fun setOnboarded(ctx: Context, value: Boolean = true) {
+        // Finishing (or restarting) the tour drops any half-way progress.
+        devicePrefs(ctx).edit().putBoolean(KEY_ONBOARDED, value).remove(KEY_ONB_PROGRESS).commit()
+    }
+
+    /**
+     * Where the user is in onboarding, so it resumes there when the phone closed the app while
+     * they were in Settings granting a permission (OnePlus and others do this often). Stored as
+     * "step|guess|limit|usageSkipped|agreed"; null when not started.
+     */
+    fun onboardingProgress(ctx: Context): String? = devicePrefs(ctx).getString(KEY_ONB_PROGRESS, null)
+    fun setOnboardingProgress(ctx: Context, value: String) =
+        devicePrefs(ctx).edit().putString(KEY_ONB_PROGRESS, value).apply()
+
+    private const val KEY_ONB_PROGRESS = "onboarding_progress"
 
     /** Settings that belong to this phone only; excluded from backup (res/xml/backup_rules.xml). */
     private fun devicePrefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(DEVICE_PREFS, Context.MODE_PRIVATE)
 
     const val DEVICE_PREFS = "device_state"
+
+    // Health of the counting service, shown in Settings so problems can be spotted on the phone.
+    // Kept in the device prefs so writing them doesn't redraw screens or widgets.
+
+    /** When the counting service last started (epoch millis), or 0 if never. */
+    fun serviceStartedAt(ctx: Context): Long = devicePrefs(ctx).getLong("service_started_at", 0L)
+    fun markServiceStarted(ctx: Context) =
+        devicePrefs(ctx).edit().putLong("service_started_at", System.currentTimeMillis()).apply()
+
+    /** When the service last saw a supported app in front (epoch millis), and which one. */
+    fun lastSeenAt(ctx: Context): Long = devicePrefs(ctx).getLong("last_seen_at", 0L)
+    fun lastSeenApp(ctx: Context): String? = devicePrefs(ctx).getString("last_seen_app", null)
+    fun markSeen(ctx: Context, platform: Platform) {
+        val now = System.currentTimeMillis()
+        // At most once a minute: this runs on every screen check.
+        if (now - lastSeenAt(ctx) < 60_000 && lastSeenApp(ctx) == platform.shortName) return
+        devicePrefs(ctx).edit().putLong("last_seen_at", now).putString("last_seen_app", platform.shortName).apply()
+    }
 
     /** Whether [platform] is counted at all; chosen in onboarding ("Which apps?"). */
     fun isTracked(ctx: Context, platform: Platform): Boolean =
@@ -173,7 +216,7 @@ object CountStore {
         prefs(ctx).getBoolean("hit|$day", false) || total(ctx, day) >= limit(ctx)
 
     /** The first day with any recorded use, so days before the app was installed don't count. */
-    private fun firstDay(ctx: Context): LocalDate {
+    fun firstDay(ctx: Context): LocalDate {
         val p = prefs(ctx)
         p.getString(KEY_FIRST_DAY, null)?.let { return LocalDate.parse(it) }
         val earliest = p.all.keys

@@ -68,6 +68,23 @@
             android:text="@string/widget_reels_today"
             android:textColor="@color/widget_muted"
             android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/nudgeText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:maxLines="2"
+            android:textColor="@color/widget_fg"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/yesterdayText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/widget_muted"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <LinearLayout

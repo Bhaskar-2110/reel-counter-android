@@ -81,6 +81,20 @@ data class WidgetData(
             (if (streak.brokenToday) "💔 " else "🔥 ") +
                 ctx.resources.getQuantityString(R.plurals.streak_days, streak.current, streak.current)
 
+        /**
+         * The widget's nudge line (idea from BrainPal's "Put it down?") and yesterday's count
+         * for context.
+         */
+        fun showNudge(ctx: Context, views: RemoteViews, data: WidgetData) {
+            views.setTextViewText(
+                R.id.nudgeText,
+                if (data.progress >= 1f) ctx.getString(R.string.widget_nudge_over)
+                else ctx.getString(com.bhaskar.reelcounter.MoodColors.sayingFor(data.progress)),
+            )
+            val yesterday = CountStore.total(ctx, java.time.LocalDate.now().minusDays(1))
+            views.setTextViewText(R.id.yesterdayText, ctx.getString(R.string.widget_yesterday, yesterday))
+        }
+
         fun openApp(ctx: Context): PendingIntent = PendingIntent.getActivity(
             ctx, 0,
             Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
