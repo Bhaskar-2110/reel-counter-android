@@ -8,6 +8,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.materialswitch.MaterialSwitch
 
 /**
@@ -38,6 +40,32 @@ class SettingsActivity : PageActivity() {
                 Ui.pressable(this)
                 setOnClickListener { push(Intent(this@SettingsActivity, PermissionsActivity::class.java)) }
             }, Ui.gap(this, 4f))
+        }
+
+        section(R.string.account)
+        val user = Account.current(this)
+        if (user == null) {
+            val sub = getString(if (Account.isSetUp(this)) R.string.sign_in_google_sub else R.string.sign_in_not_set_up)
+            Ui.setRow(list(), R.drawable.ic_user, getString(R.string.sign_in_google), sub, listOf(Ui.chevron(this))) {
+                Account.signIn(this) { signedIn, error ->
+                    if (signedIn != null) rebuild()
+                    else if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                }
+            }
+        } else {
+            val email = user.email.orEmpty()
+            Ui.setRow(list(), R.drawable.ic_user, Account.label(user), email.takeIf { it != Account.label(user) },
+                listOf(Ui.value(this, getString(R.string.sign_out)))) {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.sign_out)
+                    .setMessage(getString(R.string.sign_out_confirm, email))
+                    .setPositiveButton(R.string.sign_out) { _, _ ->
+                        Account.signOut(this)
+                        rebuild()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
         }
 
         section(R.string.your_rules)
@@ -194,6 +222,7 @@ class SettingsActivity : PageActivity() {
                 fun set(v: Int) {
                     val value = v.coerceIn(5, 500)
                     CountStore.setLimit(ctx, value)
+                    Analytics.limitSetSoon(ctx, value)
                     number?.text = value.toString()
                     number?.let(Ui::bump)
                     sub.text = subText(value)

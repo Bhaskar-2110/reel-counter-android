@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.isVisible
 import com.reelcounter.databinding.ActivityOnboardingBinding
@@ -40,6 +41,7 @@ class OnboardingActivity : BaseActivity() {
     private var weekMs = -1L
     private var weekApps: List<String> = emptyList()
     private val faces = ArrayList<EyesView>()
+    private var loggedStep: Step? = null
 
     private enum class Step { WELCOME, APPS, WEEK, LIMIT, ACCESS, RUNNING, IRIS }
 
@@ -63,9 +65,13 @@ class OnboardingActivity : BaseActivity() {
         when {
             step == Step.WEEK && !revealed && UsageRepository.hasAccess(this) -> {
                 revealed = true
+                Analytics.permissionGranted(this, "usage")
                 show(Step.WEEK, direction = 0)
             }
-            step == Step.ACCESS && MainActivity.isServiceEnabled(this) -> show(Step.RUNNING, direction = 1)
+            step == Step.ACCESS && MainActivity.isServiceEnabled(this) -> {
+                Analytics.permissionGranted(this, "accessibility")
+                show(Step.RUNNING, direction = 1)
+            }
             step == Step.RUNNING -> show(Step.RUNNING, direction = 0)
         }
     }
@@ -102,6 +108,10 @@ class OnboardingActivity : BaseActivity() {
     /** Shows [s]; [direction] 1 slides it in from the right, -1 from the left, 0 not at all. */
     private fun show(s: Step, direction: Int) {
         step = s
+        if (s != loggedStep) {
+            loggedStep = s
+            Analytics.onboardingStep(this, s.name)
+        }
         saveProgress()
         faces.clear()
         val body = binding.body
@@ -182,6 +192,21 @@ class OnboardingActivity : BaseActivity() {
         title(getString(R.string.onb_welcome_title), center = true)
         para(getString(R.string.onb_welcome_text), center = true)
         primary(getString(R.string.get_started)) { show(Step.APPS, 1) }
+        // Returning users. Sign-in only for now: nothing to restore, so the tour carries on.
+        if (Account.isSetUp(this) && Account.current(this) == null) {
+            binding.ghost.isVisible = true
+            binding.ghost.text = getString(R.string.have_account)
+            binding.ghost.setOnClickListener {
+                Account.signIn(this) { user, error ->
+                    if (user != null) {
+                        Toast.makeText(this, getString(R.string.signed_in_as, Account.label(user)), Toast.LENGTH_SHORT).show()
+                        if (step == Step.WELCOME) show(Step.APPS, 1)
+                    } else if (error != null) {
+                        Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
     }
 
     private fun wordmarkView() = TextView(this).apply {
@@ -330,6 +355,7 @@ class OnboardingActivity : BaseActivity() {
             chips.forEach { it.isSelected = it.tag == limit }
             primary(getString(R.string.onb_set_n, limit)) {
                 CountStore.setLimit(this, limit)
+                Analytics.limitSet(this, limit)
                 show(Step.ACCESS, 1)
             }
             saveProgress()
@@ -475,6 +501,9 @@ class OnboardingActivity : BaseActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_NOTIF && grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Analytics.permissionGranted(this, "notifications")
+        }
         if (requestCode == REQUEST_NOTIF && step == Step.RUNNING) show(Step.RUNNING, 0)
     }
 
@@ -515,6 +544,7 @@ class OnboardingActivity : BaseActivity() {
     private fun finishOnboarding() {
         CountStore.setLimit(this, limit)
         CountStore.setOnboarded(this)
+        Analytics.onboardingComplete(this)
         if (MainActivity.isServiceEnabled(this)) KeepAliveService.start(this)
         startActivity(Intent(this, MainActivity::class.java))
         super.finish()
