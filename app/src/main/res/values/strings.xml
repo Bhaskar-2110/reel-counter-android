@@ -244,9 +244,9 @@
     <string name="help_text">• Counting stopped? Open Settings → the Fix card, or More → Permissions, and turn everything green.\n\n• Accessibility switch greyed out? Open App info for Rokoreels, tap ⋮ → Allow restricted settings, then try again.\n\n• The first reel you open isn\'t counted until you swipe to the next one.\n\n• An app stopped being counted after an update? It renamed its reels screen; tell us which app and version.</string>
     <string name="privacy">Privacy</string>
     <string name="privacy_sub">What you watch never leaves your phone</string>
-    <string name="privacy_text">Rokoreels only notices which app and screen are open and when you swipe, never your messages, passwords or what\'s in the videos. Counts and settings are kept in the app\'s private storage on this phone.\n\nAnonymous usage stats (Google Analytics for Firebase): which setup steps you finish, when a limit, pause or block screen happens, and a daily total of reels per app. No names, emails or advertising ID. Turn it off in More → Share anonymous usage stats.\n\nSigning in with Google is optional and links only your name and email to an account.</string>
+    <string name="privacy_text">Rokoreels only notices which app and screen are open and when you swipe, never your messages, passwords or what\'s in the videos. Counts and settings are kept in the app\'s private storage on this phone.\n\nAnonymous usage stats (Google Analytics for Firebase): which setup steps you finish, when a limit, pause or block screen happens, how long Iris is on screen and reels in that visit, and a daily total of reels per app. No names, emails or advertising ID. Turn it off in More → Share anonymous usage stats.\n\nSigning in with Google is optional. It saves your name and email with your account, and links your usage stats to your account ID. Settings → Account → Delete account removes them.</string>
     <string name="share_stats">Share anonymous usage stats</string>
-    <string name="share_stats_sub">Daily reel totals and which screens you use. No names or what you watch.</string>
+    <string name="share_stats_sub">Reel totals, time with Iris and which screens you use. Linked to your account ID when signed in. Never what you watch.</string>
     <string name="about">About Rokoreels</string>
     <string name="about_text">Rokoreels %1$s\n\nCounts every reel and helps you stop when you mean to.\n\nFonts: Bricolage Grotesque and Inter, both under the SIL Open Font License.</string>
 
@@ -327,11 +327,15 @@
     <!-- Account (Google sign-in through Firebase) -->
     <string name="account">Account</string>
     <string name="sign_in_google">Sign in with Google</string>
-    <string name="sign_in_google_sub">Optional. Only your name and email are linked.</string>
+    <string name="sign_in_google_sub">Optional. Saves your name and email with your account.</string>
     <string name="sign_in_not_set_up">Sign-in isn\'t set up in this build.</string>
     <string name="sign_in_failed">Couldn\'t sign in. Check your connection and try again.</string>
     <string name="signed_in_as">Signed in as %1$s</string>
     <string name="sign_out">Sign out</string>
+    <string name="delete_account">Delete account</string>
+    <string name="delete_account_confirm">Deletes your account and the name and email saved with it, and stops linking usage stats to it. Your counts and settings on this phone stay. Google may ask you to pick your account once more.</string>
+    <string name="delete_account_failed">Couldn\'t delete your account. Check your connection and try again.</string>
+    <string name="account_deleted">Account deleted</string>
     <string name="sign_out_confirm">Sign out of %1$s? Your counts and settings stay on this phone.</string>
     <string name="onb_continue">Continue</string>
     <string name="onb_apps_title">Which apps pull you in?</string>

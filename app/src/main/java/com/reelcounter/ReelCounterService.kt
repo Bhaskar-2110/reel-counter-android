@@ -72,6 +72,10 @@ class ReelCounterService : AccessibilityService() {
     /** Until when the counter should plead the next time it shows (elapsedRealtime). */
     private var pleadUntil = 0L
     private var sessionStart = 0L
+    /** When Iris came on screen (elapsedRealtime), over which app, and its reels then: for the iris_session event. */
+    private var irisShownAt = 0L
+    private var irisPlatform: Platform? = null
+    private var irisReelsAtStart = 0
     private var timedPlatform: Platform? = null
     private var timedSince = 0L
     private var lastLength = -1
@@ -904,6 +908,9 @@ class ReelCounterService : AccessibilityService() {
         val view = island ?: createIsland().also {
             island = it
             handler.postDelayed(pollWhileVisible, POLL_MS)
+            irisShownAt = SystemClock.elapsedRealtime()
+            irisPlatform = platform
+            irisReelsAtStart = CountStore.appCount(this, LocalDate.now(), platform)
         }
         val now = SystemClock.elapsedRealtime()
         val progress = maxOf(CountStore.limitProgress(this, platform), timeProgress(platform))
@@ -1127,6 +1134,11 @@ class ReelCounterService : AccessibilityService() {
         handler.removeCallbacks(pollWhileVisible)
         val leaving = island ?: return
         island = null
+        irisPlatform?.let { p ->
+            Analytics.irisSession(this, p, SystemClock.elapsedRealtime() - irisShownAt,
+                CountStore.appCount(this, LocalDate.now(), p) - irisReelsAtStart)
+        }
+        irisPlatform = null
         islandTouch?.let { removeOverlay(it) }
         islandTouch = null
         leaving.dismiss { removeOverlay(leaving) }

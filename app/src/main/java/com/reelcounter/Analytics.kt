@@ -12,8 +12,10 @@ import java.time.LocalDate
  * Anonymous usage stats through Google Analytics for Firebase. On by default; More → Share
  * anonymous usage stats turns it off. No advertising ID (see the manifest).
  *
- * Only step names, app names, counts and limits are sent: never names, emails, or anything the
- * Accessibility service sees on screen. Events aren't linked to the signed-in account.
+ * Only step names, app names, counts, times and limits are sent: never names, emails, or anything
+ * the Accessibility service sees on screen. When signed in, events carry the Firebase user ID
+ * (not the email; Google Analytics doesn't allow that), which Account's Firestore profile maps
+ * to a person.
  */
 object Analytics {
 
@@ -26,6 +28,14 @@ object Analytics {
     /** Applies the saved choice at app start. */
     fun init(ctx: Context) {
         fa(ctx)?.setAnalyticsCollectionEnabled(enabled(ctx))
+        setUser(ctx, Account.current(ctx)?.uid)
+    }
+
+    /** Links the events that follow to the signed-in account's ID, or to nobody with null. */
+    fun setUser(ctx: Context, uid: String?) {
+        val fa = fa(ctx) ?: return
+        fa.setUserId(uid)
+        fa.setUserProperty("signed_in", if (uid != null) "yes" else "no")
     }
 
     fun enabled(ctx: Context): Boolean = CountStore.prefs(ctx).getBoolean(KEY_ENABLED, true)
@@ -96,6 +106,26 @@ object Analytics {
         log(ctx, if (newUser) FirebaseAnalytics.Event.SIGN_UP else FirebaseAnalytics.Event.LOGIN, FirebaseAnalytics.Param.METHOD to "google")
 
     fun logout(ctx: Context) = log(ctx, "logout")
+
+    fun accountDeleted(ctx: Context) = log(ctx, "account_deleted")
+
+    // Iris over reel apps
+
+    /**
+     * One visit with Iris on screen, sent when she leaves. Iris is an overlay, not an app
+     * screen, so Firebase doesn't count this time as engagement (a custom engagement_time_msec
+     * parameter isn't treated as its own `_et`, checked 11 Oct). "People the counter works for"
+     * is therefore Events → iris_session → Total users, not Active users. Flickers under 5 s
+     * are skipped; 30 min is the most one visit reports, so a stuck overlay can't inflate it.
+     */
+    fun irisSession(ctx: Context, platform: Platform, durationMs: Long, reels: Int) {
+        if (durationMs < 5_000) return
+        val ms = durationMs.coerceAtMost(30 * 60_000L)
+        log(ctx, "iris_session",
+            "platform" to platform.name,
+            "seconds" to ms / 1000,
+            "reels" to reels.coerceAtLeast(0).toLong())
+    }
 
     // Daily summary
 

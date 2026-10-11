@@ -83,8 +83,13 @@ Accessibility service sees on screen is ever sent.
 go to Google Analytics for Firebase: onboarding steps finished, permissions granted, limit
 changes, when a limit, pause or block screen happens, sign-in/sign-out, and once a day
 yesterday's reel total per app, minutes and whether you stayed under your limit. No names,
-emails or advertising ID, and the stats aren't linked to your account.
-If you sign in, Firebase keeps your Google name and email to identify your account.
+emails or advertising ID. Each time Iris leaves the screen, how long she was there and the
+reels in that visit are sent too. When you're signed in, the stats carry your account's random
+ID (not your email).
+
+**Account.** Signing in with Google saves your name, email and sign-in dates in the project's
+Firestore database, so an account can be identified. **Settings → Account → Delete account**
+deletes the account and that record.
 Android's own backup may copy counts and settings to a new phone; the crash log never leaves it.
 
 ## Supported apps
@@ -116,6 +121,15 @@ Or open the folder in Android Studio and press **Run ▶** with your phone conne
 Google sign-in needs a Firebase project: add an Android app `com.reelcounter` with your signing
 key's SHA-1, enable **Authentication → Google**, and put its `google-services.json` in `app/`
 (it's git-ignored). Without the file the app still builds, and sign-in shows as not set up.
+
+Account profiles need **Firestore** in the same project, with rules that let each signed-in user
+read and write only `users/{their uid}`:
+
+```
+match /users/{uid} {
+  allow read, write: if request.auth != null && request.auth.uid == uid;
+}
+```
 
 ## How it works
 

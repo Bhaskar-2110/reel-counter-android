@@ -63,6 +63,7 @@ class SettingsActivity : PageActivity() {
                         Account.signOut(this)
                         rebuild()
                     }
+                    .setNeutralButton(R.string.delete_account) { _, _ -> confirmDeleteAccount() }
                     .setNegativeButton(android.R.string.cancel, null)
                     .show()
             }
@@ -129,6 +130,24 @@ class SettingsActivity : PageActivity() {
         content.addView(Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.version, versionName())).apply {
             gravity = Gravity.CENTER
         }, Ui.gap(this, 14f))
+    }
+
+    private fun confirmDeleteAccount() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.delete_account)
+            .setMessage(R.string.delete_account_confirm)
+            .setPositiveButton(R.string.delete_account) { _, _ ->
+                Account.deleteAccount(this) { deleted, error ->
+                    if (deleted) {
+                        Toast.makeText(this, R.string.account_deleted, Toast.LENGTH_SHORT).show()
+                        rebuild()
+                    } else if (error != null) {
+                        Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun versionName() = try {
