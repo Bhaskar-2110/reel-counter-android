@@ -64,7 +64,8 @@ data class DayReport(
     val firstPickup: Long?,
     val hourlyMs: LongArray,
 ) {
-    val social get() = apps.filter { it.packageName in SocialApps.NAMES }
+    /** The reel apps Rokoreels watches (Platform), so the list matches its "Only the apps Rokoreels watches" note. */
+    val social get() = apps.filter { Platform.forPackage(it.packageName) != null }
 }
 
 /**
@@ -109,7 +110,8 @@ object UsageRepository {
         val notifications = HashMap<String, Int>()
         val longest = HashMap<String, Long>()
         val lastUsed = HashMap<String, Long>()
-        val hourly = LongArray(24)
+        // Per app, so hours only add up apps that make it into the list (and the total).
+        val hourlyByPkg = HashMap<String, LongArray>()
         var unlocks = 0
         var notificationTotal = 0
         var firstPickup: Long? = null
@@ -128,7 +130,7 @@ object UsageRepository {
                 val hour = ((t - start) / HOUR_MS).toInt().coerceIn(0, 23)
                 val hourEnd = start + (hour + 1) * HOUR_MS
                 val stop = minOf(to, hourEnd)
-                hourly[hour] += stop - t
+                hourlyByPkg.getOrPut(pkg) { LongArray(24) }[hour] += stop - t
                 t = if (stop > t) stop else to
             }
         }
@@ -207,7 +209,7 @@ object UsageRepository {
             unlocks = unlocks,
             notifications = if (notificationTotal > 0) notificationTotal else -1,
             firstPickup = firstPickup,
-            hourlyMs = hourly,
+            hourlyMs = LongArray(24) { h -> apps.sumOf { hourlyByPkg[it.packageName]?.get(h) ?: 0L } },
         )
     }
 

@@ -1,62 +1,65 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Night Garden palette (design_docs/reel-counter-mockups.html). This file is the light
-     variant, derived from the same hues with darker mood colours for contrast on white; the
-     exact Night Garden values are in values-night/colors.xml. -->
+<!-- Light · Paper (design/Rokoreels App Flow.html): warm off-white, mood colours darkened so each
+     passes contrast on paper. Dark · Night Garden is in values-night/colors.xml. -->
 <resources>
     <!-- Neutrals -->
-    <color name="bg">#F5F6FB</color>
+    <color name="bg">#F7F6F2</color>
     <color name="surface">#FFFFFF</color>
-    <color name="raised">#ECEEF6</color>
-    <color name="line">#DCDFEC</color>
-    <color name="fg">#0B0D17</color>
-    <color name="muted">#4C5170</color>
-    <color name="faint">#6E7392</color>
-    <color name="bar">#DCDFEC</color>
+    <color name="raised">#EEECE6</color>
+    <color name="line">#E4E1D8</color>
+    <color name="fg">#14162B</color>
+    <color name="muted">#4A4E68</color>
+    <color name="faint">#6B6F86</color>
+    <color name="track">#E4E1D8</color>
+    <color name="nav">#F5FFFFFF</color>
 
-    <!-- Brand: calm mint; text on brand buttons -->
-    <color name="accent">#12A57A</color>
+    <!-- Brand -->
+    <color name="accent">#0B7A59</color>
     <color name="on_accent">#FFFFFF</color>
-    <color name="premium">#6E5BE0</color>
 
     <!-- Mood ramp: one colour at a time, chosen by % of the daily limit -->
-    <color name="mood_calm">#12A57A</color>
-    <color name="mood_curious">#1E95D6</color>
-    <color name="mood_worried">#C98A06</color>
-    <color name="mood_sad">#E0663F</color>
-    <color name="mood_angry">#E5354A</color>
+    <color name="mood_calm">#0B7A59</color>
+    <color name="mood_curious">#086BA3</color>
+    <color name="mood_worried">#9A6500</color>
+    <color name="mood_sad">#C24A25</color>
+    <color name="mood_angry">#C8283A</color>
 
-    <!-- Older names, kept for progress bars: ok / warn / over -->
-    <color name="ok">#12A57A</color>
-    <color name="warn">#C98A06</color>
-    <color name="over">#E5354A</color>
 
-    <!-- Overlays (pause and block screens) are always Night, in both themes -->
-    <color name="film">#0B0D17</color>
+    <!-- Royal · Purple and gold -->
+    <color name="royal_bg">#1E0A38</color>
+    <color name="royal_surface">#9E280E48</color>
+    <color name="royal_raised">#8058288C</color>
+    <color name="royal_line">#33FFCE54</color>
+    <color name="royal_fg">#FFF7E3</color>
+    <color name="royal_muted">#EADCB8</color>
+    <color name="royal_faint">#BFA9D6</color>
+    <color name="royal_accent">#FFCB45</color>
+    <color name="royal_on_accent">#2A1500</color>
+    <color name="royal_track">#21FFFFFF</color>
+    <color name="royal_nav">#B8220A3E</color>
+    <color name="royal_m0">#3DDC97</color>
+    <color name="royal_m1">#7FB2FF</color>
+    <color name="royal_m2">#FFB547</color>
+    <color name="royal_m3">#FF8A5C</color>
+    <color name="royal_m4">#FF4F79</color>
+
+    <!-- Overlays (pause and block screens) are always Night, in every theme -->
     <color name="film_fg">#F2F3F8</color>
     <color name="film_muted">#A3A8C3</color>
-    <color name="block_scrim">#F70B0D17</color>
+    <color name="block_scrim">#FF0B0D17</color>
     <color name="night_raised">#1E2235</color>
+    <color name="night_line">#2C3150</color>
+    <color name="night_surface">#151827</color>
     <color name="night_calm">#4FE3B0</color>
+    <color name="night_curious">#5CC8FF</color>
+    <color name="night_sad">#FF8A65</color>
     <color name="night_on_calm">#062A1F</color>
     <color name="night_angry">#FF4D5E</color>
     <color name="night_faint">#7F84A3</color>
+    <color name="night_pleading">#FF7AD9</color>
 
-    <!-- Iris: eye white, pupil, tear -->
-    <color name="iris_eye">#F2F3F8</color>
-    <color name="iris_pupil">#0B0D17</color>
-    <color name="iris_tear">#5CC8FF</color>
 
-    <!-- Widgets: always Night, so the white eyes stand out on any wallpaper -->
-    <color name="widget_bg">#F20B0D17</color>
+    <!-- Widgets (Night values; light and royal are picked in WidgetTheme) -->
     <color name="widget_fg">#FFF2F3F8</color>
     <color name="widget_muted">#FFA3A8C3</color>
-    <color name="widget_track">#FF1E2235</color>
-    <color name="widget_calm">#FF4FE3B0</color>
-    <color name="widget_curious">#FF5CC8FF</color>
-    <color name="widget_worried">#FFFFC24D</color>
-    <color name="widget_sad">#FFFF8A65</color>
-    <color name="widget_angry">#FFFF4D5E</color>
-    <color name="widget_ok">#FF4FE3B0</color>
-    <color name="widget_warn">#FFFFC24D</color>
-    <color name="widget_over">#FFFF4D5E</color>
 </resources>

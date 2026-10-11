@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Theme colours (design/Rokoreels App Flow.html, the phone's p- tokens). Screens read these
+     instead of @color so the Royal theme can swap them; see AppTheme.kt. -->
+<resources>
+    <attr name="rrBg" format="color" />
+    <attr name="rrSurface" format="color" />
+    <attr name="rrRaised" format="color" />
+    <attr name="rrLine" format="color" />
+    <attr name="rrText" format="color" />
+    <attr name="rrText2" format="color" />
+    <attr name="rrText3" format="color" />
+    <attr name="rrAccent" format="color" />
+    <attr name="rrOnAccent" format="color" />
+    <attr name="rrTrack" format="color" />
+    <attr name="rrNav" format="color" />
+    <!-- Mood ramp: calm, curious, worried, sad, angry -->
+    <attr name="rrM0" format="color" />
+    <attr name="rrM1" format="color" />
+    <attr name="rrM2" format="color" />
+    <attr name="rrM3" format="color" />
+    <attr name="rrM4" format="color" />
+    <!-- Card and list fill (frosted glass in Royal) -->
+    <attr name="rrCardBg" format="reference" />
+    <attr name="rrScreenBg" format="reference" />
+    <attr name="rrSheet" format="color" />
+
+    <declare-styleable name="SegmentedControl">
+        <attr name="segments" format="reference" />
+    </declare-styleable>
+</resources>

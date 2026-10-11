@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design ".row": app icon, name (and a line under it), minutes, reels, and a chevron. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    style="@style/Widget.Rr.Row"
+    android:minHeight="52dp"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="9dp">
+
+    <ImageView
+        android:id="@+id/appIcon"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginEnd="12dp"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/appName"
+            style="@style/Rr.Text.RowTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/appSub"
+            style="@style/Rr.Text.Sub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <FrameLayout
+            android:id="@+id/appMeter"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/mbar_track"
+            android:visibility="gone">
+
+            <View
+                android:id="@+id/appMeterFill"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/mbar_track" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/appTime"
+        style="@style/Rr.Text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFeatureSettings="tnum"
+        android:gravity="end"
+        android:minWidth="46dp"
+        android:textColor="?attr/rrText2"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/appCount"
+        style="@style/Rr.Text.Num"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:minWidth="30dp" />
+
+    <ImageView
+        android:id="@+id/appChevron"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="6dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/ic_chevron"
+        app:tint="?attr/rrText3" />
+</LinearLayout>

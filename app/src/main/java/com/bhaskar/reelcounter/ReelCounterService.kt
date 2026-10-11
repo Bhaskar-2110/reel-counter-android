@@ -18,6 +18,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import android.view.Choreographer
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -31,6 +32,7 @@ import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
@@ -94,6 +96,7 @@ class ReelCounterService : AccessibilityService() {
         }
     }
     private val recheck = Runnable { checkScreen() }
+    private val refreshWidgets = Runnable { safely("widgets") { com.bhaskar.reelcounter.widget.WidgetUpdater.updateAll(this) } }
 
     /** With the screen off, the user isn't using the app: stop the timer and hide the island. */
     private val screenOff = object : BroadcastReceiver() {
@@ -108,6 +111,7 @@ class ReelCounterService : AccessibilityService() {
         super.onServiceConnected()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         CountStore.markServiceStarted(this)
+        safely("prune") { CountStore.prune(this) }
         // After a restart (an update, or the phone killing the app), the app already on screen
         // isn't a new open.
         foregroundPkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
@@ -184,21 +188,30 @@ class ReelCounterService : AccessibilityService() {
             Log.d(
                 DBG, "EV ${AccessibilityEvent.eventTypeToString(event.eventType)} pkg=$pkg cls=${event.className} " +
                     "id=${src?.viewIdResourceName} desc=${src?.contentDescription?.toString()?.take(40)} " +
-                    "from=${event.fromIndex} to=${event.toIndex} items=${event.itemCount} dy=${event.scrollDeltaY} h=${r.height()}",
+                    "from=${event.fromIndex} to=${event.toIndex} items=${event.itemCount} dy=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0} h=${r.height()}",
             )
         }
         val platform = Platform.forPackage(pkg)?.takeIf { CountStore.isTracked(this, it) }
 
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) onForegroundChanged(pkg, platform)
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) queueForegroundCheck()
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 if (platform != null) queueScreenCheck()
-                else if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && pkg != SYSTEM_UI) hideBadge()
             }
 
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                // Swiping on while Reels are blocked ends the "allow a reel someone sends you"
+                // grace and blocks right away, without waiting for the swipe to be counted.
+                // (Instagram reports its first video, index 0, as a scroll when Reels opens.)
+                if (platform != null && !platform.isWholeApp && event.fromIndex != 0 &&
+                    platform !in scrolledWhileBlocked && Blocking.reason(this, platform) != null &&
+                    isFullScreen(event.source)
+                ) {
+                    scrolledWhileBlocked += platform
+                    queueScreenCheck()
+                }
                 // Apps tracked by their progress bar or on-screen text are counted in checkScreen.
                 if (platform == null || platform.progressBarId != null || platform.signatureRootId != null ||
                     !isFullScreen(event.source)
@@ -219,12 +232,37 @@ class ReelCounterService : AccessibilityService() {
     private fun onSwipeSettled(platform: Platform, index: Int) {
         if (shortsPlatformOnScreen() != platform) return
         if (index >= 0) {
-            if (index <= (furthestIndex[platform] ?: -1)) return
+            val furthest = furthestIndex[platform]
+            if (furthest != null && index <= furthest) return
             furthestIndex[platform] = index
+            // Instagram reports its first video (index 0) as a scroll when Reels opens. That's
+            // just opening Reels: like the other apps, the first video counts on the first swipe.
+            if (furthest == null && index == 0) return
         }
-        // Instagram reports its first video (index 0) as a scroll when Reels opens; that isn't
-        // the user swiping on, so it doesn't end the "allow first reel" grace.
-        countReel(platform, swipedOn = index != 0)
+        countReel(platform)
+    }
+
+    private var foregroundCheckQueued = false
+
+    /**
+     * A window changed. Which app is really in front is read a moment later from the window
+     * that has focus: overlays that don't take focus (screenshot previews, toasts, other apps'
+     * floating counters) then don't look like leaving and reopening the app, which used to
+     * count extra opens, close the pause screen and hide Iris.
+     */
+    private fun queueForegroundCheck() {
+        if (foregroundCheckQueued) return
+        foregroundCheckQueued = true
+        handler.postDelayed({
+            foregroundCheckQueued = false
+            safely("foreground") {
+                val active = rootInActiveWindow?.packageName?.toString() ?: return@safely
+                if (active == packageName) return@safely
+                val platform = Platform.forPackage(active)?.takeIf { CountStore.isTracked(this, it) }
+                onForegroundChanged(active, platform)
+                if (platform != null) checkScreen() else if (active != SYSTEM_UI) hideBadge()
+            }
+        }, FOREGROUND_CHECK_MS)
     }
 
     /**
@@ -327,6 +365,8 @@ class ReelCounterService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
         if (DEBUG_LOG) Log.d(DBG, "COUNT? $platform gap=${now - lastCountAt}")
         if (now - lastCountAt < MIN_GAP_MS) return
+        // Sponsored videos are ads, not reels you chose to watch.
+        if (isAdOnScreen()) return
         lastCountAt = now
         // Swiping on while blocked ends the "first reel allowed" grace (see checkScreen).
         if (swipedOn && Blocking.reason(this, platform) != null) scrolledWhileBlocked += platform
@@ -343,6 +383,12 @@ class ReelCounterService : AccessibilityService() {
         island?.onReel(maxOf(after, timeProgress(platform)))
 
         if (after >= 1f) CountStore.markLimitHit(this, LocalDate.now())
+
+        // The ongoing notification's service refreshes widgets; without it, do it here.
+        if (!CountStore.ongoingNotification(this)) {
+            handler.removeCallbacks(refreshWidgets)
+            handler.postDelayed(refreshWidgets, WIDGET_REFRESH_MS)
+        }
 
         // Near the limit, every reel gives a short buzz; reaching it gives a long one.
         when {
@@ -406,43 +452,104 @@ class ReelCounterService : AccessibilityService() {
             return
         }
 
+        // Focus hours lock the whole app until they end.
+        focusReason(platform)?.let {
+            block(platform, reason = it)
+            return
+        }
+
         // Over the limit, apps that are nothing but short videos stay closed. Other apps open
         // normally; only their Reels/Shorts/Spotlight screen is blocked (see checkScreen).
         Blocking.reason(this, platform)?.takeIf { platform.isWholeApp }?.let {
             block(platform, reason = it)
             return
         }
-        val opens = CountStore.incrementOpens(this)
+        val opens = CountStore.incrementOpens(this, platform)
         if (DEBUG_LOG) Log.d(DBG, "OPEN #$opens $platform from previous=$previous")
-        val seconds = CountStore.pauseSecondsFor(opens)
+        val seconds = CountStore.pauseSecondsFor(this, opens)
         if (seconds > 0 && CountStore.pauseOnOpen(this)) showPauseScreen(opens, seconds, platform)
     }
 
+    private fun focusReason(platform: Platform): BlockReason.Focus? =
+        Blocking.activeFocus(this, platform)?.let { BlockReason.Focus(it.name, it.end) }
+
+    private var keyboards: Set<String> = emptySet()
+    private var keyboardsAt = 0L
+
+    /** Keyboards don't count as leaving an app. The list is a system call, so it's kept a minute. */
     private fun isKeyboard(pkg: String): Boolean {
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        return imm.enabledInputMethodList.any { it.packageName == pkg }
+        val now = SystemClock.elapsedRealtime()
+        if (now - keyboardsAt > KEYBOARDS_TTL_MS || keyboardsAt == 0L) {
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            keyboards = imm.enabledInputMethodList.map { it.packageName }.toSet()
+            keyboardsAt = now
+        }
+        return pkg in keyboards
+    }
+
+    /** For inflating overlays; their layouts use the always-Night colours, whatever the theme. */
+    private fun overlayContext() = ContextThemeWrapper(this, R.style.Theme_ReelCounter)
+
+    /** A glow of [color] from the top of an overlay, over the Night scrim. */
+    private fun tintedScrim(color: Int) = android.graphics.drawable.LayerDrawable(
+        arrayOf(
+            // Opaque: the app behind used to show through (seen on the OnePlus).
+            android.graphics.drawable.ColorDrawable(0xFF0B0D17.toInt()),
+            android.graphics.drawable.GradientDrawable().apply {
+                gradientType = android.graphics.drawable.GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = resources.displayMetrics.heightPixels * 0.6f
+                setGradientCenter(0.5f, 0.25f)
+                colors = intArrayOf((color and 0x00FFFFFF) or (0x2E shl 24), color and 0x00FFFFFF)
+            },
+        ),
+    )
+
+    /** Overlays fade in and their content rises, instead of popping up. */
+    private fun enter(view: View) {
+        if (CountStore.reduceMotion(this)) return
+        view.alpha = 0f
+        view.animate().alpha(1f).setDuration(220).start()
+        // Children only slide up: their own transparency (a locked Continue button) is kept.
+        val group = view as? android.view.ViewGroup ?: return
+        val d = Ui.dp(this, 12f).toFloat()
+        for (i in 0 until group.childCount) {
+            val c = group.getChildAt(i)
+            c.translationY = d
+            c.animate().translationY(0f).setDuration(420).setStartDelay(minOf(i, 6) * 40L).setInterpolator(Ui.EASE).start()
+        }
     }
 
     /**
-     * The pause before opening, as in the design: Iris pleading inside a slowly turning ring,
-     * "Open #7 today.", a big Close app button and a quiet Continue anyway that unlocks after
-     * the countdown.
+     * The pause before opening (design "Pause screen"): Iris pleading, "Opening Instagram
+     * again?", the open count and reels so far, a countdown ring, Continue locked until it ends,
+     * and Close as the big button at the bottom.
      */
     private fun showPauseScreen(opens: Int, seconds: Int, platform: Platform) {
         hidePauseScreen()
         hideBadge()
-        val themed = ContextThemeWrapper(this, R.style.Theme_ReelCounter)
-        val view = LayoutInflater.from(themed).inflate(R.layout.overlay_pause, null)
+        val view = LayoutInflater.from(overlayContext()).inflate(R.layout.overlay_pause, null)
+        view.background = tintedScrim(getColor(R.color.night_pleading))
         val countdown = view.findViewById<TextView>(R.id.pauseCountdown)
         val continueButton = view.findViewById<MaterialButton>(R.id.pauseContinue)
-        view.findViewById<TextView>(R.id.pauseTitle).text = getString(R.string.pause_title_opens, opens)
-        view.findViewById<TextView>(R.id.pauseMessage).text = getString(R.string.pause_take_breath, platform.shortName)
+        val total = CountStore.total(this, LocalDate.now())
+        view.findViewById<TextView>(R.id.pauseTitle).text = getString(R.string.pause_again, platform.shortName)
+        view.findViewById<TextView>(R.id.pauseMessage).text = getString(
+            R.string.pause_facts, Ui.ordinal(opens), resources.getQuantityString(R.plurals.reels_so_far, total, total),
+        )
         view.findViewById<EyesView>(R.id.pauseEyes).setMood(Mood.PLEADING)
-        view.findViewById<View>(R.id.pauseLeave).setOnClickListener {
-            hidePauseScreen()
-            performGlobalAction(GLOBAL_ACTION_HOME)
+        view.findViewById<TimerRingView>(R.id.pauseRing).apply {
+            color = getColor(R.color.night_pleading)
+            start(seconds)
+        }
+        view.findViewById<MaterialButton>(R.id.pauseLeave).apply {
+            text = getString(R.string.close_app, platform.shortName)
+            setOnClickListener {
+                hidePauseScreen()
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }
         }
         continueButton.isEnabled = false
+        continueButton.alpha = 0.4f
         continueButton.setOnClickListener {
             hidePauseScreen()
             // The counter comes back pleading: "are you sure?"
@@ -454,13 +561,15 @@ class ReelCounterService : AccessibilityService() {
         val tick = object : Runnable {
             override fun run() {
                 if (left > 0) {
-                    countdown.text = getString(R.string.pause_countdown_seconds, left)
+                    countdown.text = left.toString()
                     continueButton.text = getString(R.string.pause_continue_in, left)
                     left--
                     handler.postDelayed(this, 1000)
                 } else {
                     countdown.isInvisible = true
+                    view.findViewById<View>(R.id.pauseRing).isInvisible = true
                     continueButton.isEnabled = true
+                    continueButton.alpha = 1f
                     continueButton.setText(R.string.pause_continue)
                 }
             }
@@ -469,6 +578,7 @@ class ReelCounterService : AccessibilityService() {
         pauseView = view
         pauseTick = tick
         tick.run()
+        enter(view)
     }
 
     private fun hidePauseScreen() {
@@ -490,6 +600,9 @@ class ReelCounterService : AccessibilityService() {
             return@safely
         }
         val root = rootInActiveWindow
+        // The shade, a screenshot preview or a system dialog has focus for a moment: the app
+        // underneath is still open, so keep Iris as she is.
+        if (root?.packageName?.toString() in PASS_THROUGH_PACKAGES) return@safely
         val front = root?.packageName?.toString()?.let(Platform::forPackage)?.takeIf { CountStore.isTracked(this, it) }
         if (root == null || front == null) {
             hideBadge()
@@ -501,6 +614,11 @@ class ReelCounterService : AccessibilityService() {
         if (System.currentTimeMillis() - timedSince > TIME_SAVE_MS) flushTime()
         if (timeProgress(front) >= 1f) {
             block(front, timeUp = true)
+            return@safely
+        }
+        // Focus hours started (or an emergency unlock ran out) while the app was open.
+        focusReason(front)?.let {
+            block(front, reason = it)
             return@safely
         }
         warnNearTimeLimit(front)
@@ -516,15 +634,35 @@ class ReelCounterService : AccessibilityService() {
         }
         val reason = Blocking.reason(this, front)
         if (!onShorts) scrolledWhileBlocked.remove(front)
-        // "Allow a reel someone sends you": while blocked, the first video of a visit plays;
-        // swiping on (see countReel) blocks.
+        // "Allow a reel someone sends you": while blocked, a reel opened from a chat plays;
+        // swiping on (see handleEvent and countReel) blocks. Opening the app's own Reels tab
+        // isn't a reel someone sent, so it doesn't get one (found on the OnePlus, 11 Oct).
         val allowThisOne = reason != null && !front.isWholeApp && Blocking.allowFirst(this, front) &&
-            front !in scrolledWhileBlocked
+            front !in scrolledWhileBlocked && !isMainReelsTab(front, root)
         val angryHold = island != null && SystemClock.elapsedRealtime() < angryHoldUntil
         when {
             reason != null && !angryHold && onShorts && !allowThisOne -> block(front, reason = reason)
             CountStore.showBadge(this) -> showIsland(front)
             else -> hideBadge()
+        }
+    }
+
+    /**
+     * True when Reels is open as the app's own tab (its bottom tab bar is showing), not as a
+     * reel opened from a chat or link. Only known for apps with [Platform.mainTabBarId].
+     */
+    private fun isMainReelsTab(platform: Platform, root: AccessibilityNodeInfo): Boolean {
+        val id = platform.mainTabBarId ?: return false
+        return root.findAccessibilityNodeInfosByViewId(id).any { it.isVisibleToUser }
+    }
+
+    /** True when the video on screen is marked as an ad ("Sponsored", or Snapchat's "Ad"). */
+    private fun isAdOnScreen(): Boolean {
+        val root = rootInActiveWindow ?: return false
+        return AD_LABELS.any { label ->
+            root.findAccessibilityNodeInfosByText(label).any {
+                it.isVisibleToUser && it.text?.toString()?.trim()?.equals(label, ignoreCase = true) == true
+            }
         }
     }
 
@@ -596,97 +734,151 @@ class ReelCounterService : AccessibilityService() {
         }
         lastBlockAt = now
         if (timeUp) CountStore.markLimitHit(this, LocalDate.now())
-        performGlobalAction(if (timeUp || platform.isWholeApp) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK)
+        val wholeApp = timeUp || platform.isWholeApp || reason is BlockReason.Focus
+        performGlobalAction(if (wholeApp) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK)
         showBlockScreen(platform, timeUp, reason)
         handler.removeCallbacks(recheck)
         handler.postDelayed(recheck, BLOCK_GAP_MS)
     }
 
     /**
-     * The block screen, as in the design: a badge, Iris (angry for 2 s, then sad), a headline
-     * naming the limit, and a big button back to the app's home (or just "Got it" when the whole
-     * app is closed).
+     * The block screens (design "Limit reached", "Timer up", "Focus hours block"):
+     * - a limit: Iris angry for a moment, then sad; says what still works, so people don't
+     *   force-close Rokoreels in frustration; changing the limit is only a small link.
+     * - a daily timer: Iris sad, not scolding, with a small win next to the stop.
+     * - focus hours: Iris curious in calm blue (a plan you made, not a failure); when it ends,
+     *   and an emergency unlock with its daily allowance.
+     * - "Block reels" the user chose: Iris happy with it.
      */
     private fun showBlockScreen(platform: Platform, timeUp: Boolean, reason: BlockReason? = null) {
-        val view = blockView ?: run {
-            val themed = ContextThemeWrapper(this, R.style.Theme_ReelCounter)
-            val v = LayoutInflater.from(themed).inflate(R.layout.overlay_block, null)
-            v.findViewById<View>(R.id.blockClose).setOnClickListener { hideBlockScreen() }
-            v.findViewById<View>(R.id.blockOpenApp).setOnClickListener {
-                hideBlockScreen()
-                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
-            windowManager.addView(v, fullScreenParams())
-            blockView = v
-            v
+        val fresh = blockView == null
+        val view = blockView ?: LayoutInflater.from(overlayContext()).inflate(R.layout.overlay_block, null).also {
+            windowManager.addView(it, fullScreenParams())
+            blockView = it
         }
-        val today = LocalDate.now()
-        val own = CountStore.appLimit(this, platform)
-        val appCount = CountStore.appCount(this, today, platform)
-        val appClosed = timeUp || platform.isWholeApp
+        val name = platform.shortName
+        val wholeApp = timeUp || platform.isWholeApp || reason is BlockReason.Focus
+        val title = view.findViewById<TextView>(R.id.blockTitle)
+        val message = view.findViewById<TextView>(R.id.blockMessage)
+        val card = view.findViewById<View>(R.id.blockCard)
+        val cardTitle = view.findViewById<TextView>(R.id.blockCardTitle)
+        val cardText = view.findViewById<TextView>(R.id.blockCardText)
+        val stats = view.findViewById<View>(R.id.blockStats)
+        val close = view.findViewById<MaterialButton>(R.id.blockClose)
+        val link = view.findViewById<TextView>(R.id.blockLink)
+        card.isVisible = true
+        stats.isVisible = false
+        link.isVisible = true
+        close.text = if (wholeApp) getString(R.string.back_to_home_screen) else getString(R.string.back_to_app, name)
+        close.setOnClickListener { hideBlockScreen() }
 
         val eyes = view.findViewById<EyesView>(R.id.blockEyes)
         handler.removeCallbacks(settleToSad)
-        // A limit hit makes Iris angry, then sad. Blocks the user chose (always off, no-reel
-        // hours) are calm: Iris is fine with it, or sleepy during no-reel hours.
-        val chosen = !timeUp && (reason is BlockReason.Always || reason is BlockReason.Schedule)
-        when (reason) {
-            is BlockReason.Always -> eyes.setMood(Mood.HAPPY)
-            is BlockReason.Schedule -> eyes.setMood(Mood.SLEEPY)
+        val tint: Int
+        when {
+            timeUp -> {
+                tint = getColor(R.color.night_sad)
+                eyes.setMood(Mood.SAD)
+                val minutes = CountStore.appTimeLimitMinutes(this, platform)
+                title.text = getString(R.string.block_timer_title, minutes, name)
+                message.text = getString(R.string.block_opens_midnight, name)
+                card.isVisible = false
+                stats.isVisible = true
+                view.findViewById<TextView>(R.id.blockStat1).text = Ui.minutes(todayTimeMs(platform))
+                view.findViewById<TextView>(R.id.blockStat1Label).setText(R.string.used_today)
+                val week = (6 downTo 0).map { LocalDate.now().minusDays(it.toLong()) }.filter { !it.isBefore(CountStore.firstDay(this)) }
+                val kept = week.count { !CountStore.limitHitOn(this, it) }
+                // "0 days kept" with no history to keep is just discouraging; show today's reels.
+                if (kept > 0) {
+                    view.findViewById<TextView>(R.id.blockStat2).text = kept.toString()
+                    view.findViewById<TextView>(R.id.blockStat2Label).text = resources.getQuantityString(R.plurals.days_kept_week, kept)
+                } else {
+                    view.findViewById<TextView>(R.id.blockStat2).text = CountStore.appCount(this, LocalDate.now(), platform).toString()
+                    view.findViewById<TextView>(R.id.blockStat2Label).setText(R.string.reels_today_label)
+                }
+                link.setText(R.string.change_timer)
+                link.setOnClickListener { openInApp(AppDetailActivity.intent(this, platform)) }
+            }
+            reason is BlockReason.Focus -> {
+                tint = getColor(R.color.night_curious)
+                eyes.setMood(Mood.CURIOUS)
+                title.text = getString(R.string.block_focus_title, name, reason.name)
+                val now = java.time.LocalTime.now()
+                var left = java.time.Duration.between(now, reason.until)
+                if (left.isNegative) left = left.plusDays(1)
+                message.text = getString(R.string.block_focus_sub, MainActivity.timeText(this, reason.until.hour * 60 + reason.until.minute),
+                    Ui.minutes(left.toMillis()))
+                cardTitle.setText(R.string.calls_still_work)
+                cardText.text = getString(R.string.calls_still_work_sub, reason.name)
+                val unlocks = Blocking.unlocksLeft(this)
+                link.isVisible = unlocks > 0
+                link.text = getString(R.string.unlock_for, Blocking.UNLOCK_MINUTES, unlocks)
+                link.setOnClickListener {
+                    if (Blocking.emergencyUnlock(this)) {
+                        hideBlockScreen()
+                        platform.packages.firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
+                            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            ?.let { safely("unlock") { startActivity(it) } }
+                    }
+                }
+            }
+            reason is BlockReason.Always -> {
+                tint = getColor(R.color.night_calm)
+                eyes.setMood(Mood.HAPPY)
+                title.text = if (platform.isWholeApp) getString(R.string.block_always_app_title, name)
+                else getString(R.string.block_always_title, platform.reelWord(this), name)
+                message.setText(R.string.block_always_sub)
+                stillWorks(platform, cardTitle, cardText, card)
+                link.setText(R.string.change_in_app)
+                link.setOnClickListener { openInApp(AppDetailActivity.intent(this, platform)) }
+            }
             else -> {
+                tint = getColor(R.color.night_angry)
                 eyes.setMood(Mood.ANGRY)
                 settleEyes = eyes
                 handler.postDelayed(settleToSad, ANGRY_HOLD_MS + 200)
+                val own = CountStore.appLimit(this, platform)
+                val ownHit = own > 0 && CountStore.appCount(this, LocalDate.now(), platform) >= own
+                title.text = if (ownHit) getString(R.string.block_limit_app_title, own, name)
+                else getString(R.string.block_limit_title, CountStore.limit(this))
+                message.text = if (platform.isWholeApp) getString(R.string.block_opens_midnight, name)
+                else getString(R.string.block_reels_midnight, platform.reelWord(this))
+                stillWorks(platform, cardTitle, cardText, card)
+                link.setText(R.string.change_my_limit)
+                link.setOnClickListener {
+                    openInApp(if (ownHit) AppDetailActivity.intent(this, platform) else Intent(this, SettingsActivity::class.java))
+                }
             }
         }
+        view.background = tintedScrim(tint)
+        if (fresh) enter(view)
+    }
 
-        view.findViewById<TextView>(R.id.blockBadge).apply {
-            text = when {
-                timeUp -> getString(R.string.badge_time_up)
-                reason is BlockReason.Always -> getString(R.string.badge_always)
-                reason is BlockReason.Schedule -> reason.name
-                else -> getString(R.string.badge_limit)
-            }
-            setBackgroundResource(if (chosen) R.drawable.badge_calm else R.drawable.badge_angry)
-            setTextColor(getColor(if (chosen) R.color.night_calm else R.color.night_angry))
+    /** "Instagram still works: feed, messages and stories are open. Only Reels is closed." */
+    private fun stillWorks(platform: Platform, title: TextView, text: TextView, card: View) {
+        if (platform.isWholeApp) {
+            card.isVisible = false
+            return
         }
-        val timeFormat = android.text.format.DateFormat.getTimeFormat(this)
-        view.findViewById<TextView>(R.id.blockTitle).text = when {
-            timeUp -> getString(R.string.block_title_time, platform.shortName)
-            reason is BlockReason.Always -> getString(R.string.block_title_always, platform.shortName)
-            reason is BlockReason.Schedule -> getString(
-                R.string.block_title_schedule,
-                timeFormat.format(java.util.Date.from(reason.until.atDate(LocalDate.now()).atZone(java.time.ZoneId.systemDefault()).toInstant())),
-            )
-            else -> getString(R.string.block_title)
+        title.text = getString(R.string.app_still_works, platform.shortName)
+        text.text = getString(R.string.app_still_works_sub, platform.reelWord(this))
+    }
+
+    /** Opens a Rokoreels screen from an overlay, with Home underneath for Back. */
+    private fun openInApp(screen: Intent) {
+        hideBlockScreen()
+        safely("open app") {
+            startActivities(arrayOf(
+                Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+                screen,
+            ))
         }
-        val stillWorks = if (appClosed) getString(R.string.block_opens_tomorrow, platform.shortName) else getString(R.string.block_still_works)
-        view.findViewById<TextView>(R.id.blockMessage).text = when {
-            reason is BlockReason.Always -> getString(R.string.block_message_always) + " " + stillWorks
-            reason is BlockReason.Schedule -> getString(R.string.block_message_schedule, reason.name) + " " + stillWorks
-            timeUp -> getString(R.string.block_message_time, CountStore.appTimeLimitMinutes(this, platform), platform.shortName) +
-                " " + stillWorks
-            own > 0 && appCount >= own -> getString(R.string.block_message_app, own, platform.shortName) + " " + stillWorks
-            else -> getString(R.string.block_message, CountStore.limit(this)) + " " + stillWorks
-        }
-        view.findViewById<TextView>(R.id.blockHint).apply {
-            text = if (timeUp) getString(R.string.block_used_today, formatMinutes(todayTimeMs(platform))) else ""
-            isVisible = text.isNotEmpty()
-        }
-        view.findViewById<MaterialButton>(R.id.blockClose).text =
-            if (appClosed) getString(R.string.block_got_it) else getString(R.string.block_back_to, platform.shortName)
     }
 
     private var settleEyes: EyesView? = null
 
     /** After the angry moment, Iris settles to sad. */
     private val settleToSad = Runnable { settleEyes?.setMood(Mood.SAD) }
-
-    private fun formatMinutes(ms: Long): String {
-        val minutes = ms / 60_000
-        return if (minutes < 60) getString(R.string.duration_minutes, minutes.toInt())
-        else getString(R.string.duration_hours, (minutes / 60).toInt(), (minutes % 60).toInt())
-    }
 
     private fun hideBlockScreen() {
         handler.removeCallbacks(settleToSad)
@@ -788,12 +980,29 @@ class ReelCounterService : AccessibilityService() {
         var startX = 0
         var startY = 0
         var dragging = false
-        fun moveTo(x: Int, y: Int) {
+
+        // Moving an overlay window is a round trip to the window manager. Doing it for both
+        // windows on every touch event queued up more moves than the screen could show, so Iris
+        // trailed behind the finger. Now the face's window moves at most once per frame, to
+        // wherever the finger is by then, and the touch pad stays put during the drag (Android
+        // keeps sending the gesture to the window that got the first touch) and jumps to the
+        // face when the finger lifts.
+        var moveQueued = false
+        val applyMove = Choreographer.FrameCallback {
+            moveQueued = false
+            if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
+        }
+        fun moveFace(x: Int, y: Int) {
             params.x = x
             params.y = y
-            touchParams.x = x + padPx
-            touchParams.y = y + padPx
-            if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
+            if (!moveQueued) {
+                moveQueued = true
+                Choreographer.getInstance().postFrameCallback(applyMove)
+            }
+        }
+        fun moveTouchPadToFace() {
+            touchParams.x = params.x + padPx
+            touchParams.y = params.y + padPx
             if (touchPad.isAttachedToWindow) windowManager.updateViewLayout(touchPad, touchParams)
         }
         touchPad.setOnTouchListener { v, e ->
@@ -806,20 +1015,29 @@ class ReelCounterService : AccessibilityService() {
                     startX = params.x
                     startY = params.y
                     dragging = false
+                    // Touch events straight away, not batched to the next frame: the drag was
+                    // measured lagging on a 120 Hz OnePlus (11 Oct).
+                    v.requestUnbufferedDispatch(e)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downX
                     val dy = e.rawY - downY
-                    if (!dragging && hypot(dx, dy) > slop) dragging = true
+                    if (!dragging && hypot(dx, dy) > slop) {
+                        dragging = true
+                        // Full refresh rate only while dragging; back to the app's own after.
+                        params.preferredRefreshRate = maxRefreshRate()
+                    }
                     if (dragging) {
                         val oldX = params.x
                         val oldY = params.y
-                        moveTo(clampX(startX + dx.roundToInt()), clampY(startY + dy.roundToInt()))
+                        moveFace(clampX(startX + dx.roundToInt()), clampY(startY + dy.roundToInt()))
                         view.dragBy((params.x - oldX).toFloat(), (params.y - oldY).toFloat())
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (dragging) {
+                        params.preferredRefreshRate = 0f
+                        if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
                         view.release()
                         if (hypot((params.x - dock.x).toFloat(), (params.y - dock.y).toFloat()) < snap) {
                             // Dropped near its spot: glide back under the camera.
@@ -830,12 +1048,14 @@ class ReelCounterService : AccessibilityService() {
                                 interpolator = DecelerateInterpolator()
                                 addUpdateListener {
                                     val t = it.animatedFraction
-                                    moveTo(fromX + ((dock.x - fromX) * t).roundToInt(), fromY + ((dock.y - fromY) * t).roundToInt())
+                                    moveFace(fromX + ((dock.x - fromX) * t).roundToInt(), fromY + ((dock.y - fromY) * t).roundToInt())
                                 }
+                                doOnEnd { moveTouchPadToFace() }
                                 start()
                             }
                             CountStore.setIslandPosition(this, null)
                         } else {
+                            moveTouchPadToFace()
                             CountStore.setIslandPosition(this, Point(params.x, params.y))
                         }
                     } else if (e.actionMasked == MotionEvent.ACTION_UP) {
@@ -850,6 +1070,14 @@ class ReelCounterService : AccessibilityService() {
         windowManager.addView(touchPad, touchParams)
         islandTouch = touchPad
         return view
+    }
+
+    /** The display's highest refresh rate (e.g. 120 Hz), for smooth dragging. */
+    private fun maxRefreshRate(): Float = try {
+        @Suppress("DEPRECATION")
+        windowManager.defaultDisplay.supportedModes.maxOf { it.refreshRate }
+    } catch (e: Exception) {
+        0f
     }
 
     /** The full screen size in pixels, including the status and navigation bars. */
@@ -979,6 +1207,12 @@ class ReelCounterService : AccessibilityService() {
             "com.google.android.permissioncontroller",
         )
 
+        const val KEYBOARDS_TTL_MS = 60_000L
+        const val FOREGROUND_CHECK_MS = 250L
+
+        /** On-screen labels that mark a video as an ad (exact text, any case). */
+        val AD_LABELS = listOf("Sponsored", "Ad")
+        const val WIDGET_REFRESH_MS = 2000L
         const val SETTLE_MS = 450L
         const val MIN_GAP_MS = 700L
         const val SCREEN_CHECK_MS = 300L

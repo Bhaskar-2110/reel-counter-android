@@ -28,6 +28,10 @@ object CountStore {
     private const val KEY_COUNTER_SIZE = "counter_size_dp"
     private const val KEY_WIDGETS = "widgets_enabled"
     private const val KEY_ISLAND_Y = "counter_y"
+    private const val KEY_FREE_OPENS = "free_opens"
+    private const val KEY_ONGOING = "ongoing_notification"
+    private const val KEY_PRUNED = "pruned_on"
+    private const val KEY_THEME_CHOICE = "theme_choice"
 
     fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -89,14 +93,6 @@ object CountStore {
             editor.putLong(key, p.getLong(key, 0L) + (to - from))
             from = to
         }
-        editor.apply()
-    }
-
-    /** Starts [day] over: reels, opens, time per app, reels per hour and the limit-reached mark. */
-    fun resetDay(ctx: Context, day: LocalDate) {
-        val editor = prefs(ctx).edit().remove(key(day)).remove(opensKey(day)).remove("hit|$day")
-        Platform.entries.forEach { editor.remove(appKey(day, it)).remove(appTimeKey(day, it)) }
-        for (h in 0 until 24) editor.remove(hourKey(day, h))
         editor.apply()
     }
 
@@ -211,6 +207,9 @@ object CountStore {
     fun markLimitHit(ctx: Context, day: LocalDate) =
         prefs(ctx).edit().putBoolean("hit|$day", true).apply()
 
+    /** True when a limit was reached on [day]. */
+    fun limitHitOn(ctx: Context, day: LocalDate): Boolean = limitHit(ctx, day)
+
     /** Days recorded before limit hits were tracked count as hit if the total reached the limit. */
     private fun limitHit(ctx: Context, day: LocalDate): Boolean =
         prefs(ctx).getBoolean("hit|$day", false) || total(ctx, day) >= limit(ctx)
@@ -243,30 +242,86 @@ object CountStore {
 
     // Social app opens and the pause screen shown on opening
 
-    /** Opens per day that never show a pause screen. */
+    /** Opens per day that never show a pause screen, unless the user picked another number. */
     const val FREE_OPENS = 5
+    val FREE_OPENS_CHOICES = listOf(3, 5, 10)
     private val PAUSE_STEPS = listOf(3, 5, 10, 15, 20, 25, 30)
 
     private fun opensKey(day: LocalDate) = "opens|$day"
+    private fun appOpensKey(day: LocalDate, platform: Platform) = "opens|$day|${platform.name}"
 
     fun opens(ctx: Context, day: LocalDate): Int = prefs(ctx).getInt(opensKey(day), 0)
 
-    /** Records one more social app open today and returns today's new open count. */
-    fun incrementOpens(ctx: Context): Int {
-        val k = opensKey(LocalDate.now())
+    /** Times [platform] was opened on [day] (recorded from the Rokoreels redesign on). */
+    fun appOpens(ctx: Context, day: LocalDate, platform: Platform): Int = prefs(ctx).getInt(appOpensKey(day, platform), 0)
+
+    /** Records one more open of [platform] today and returns today's new open count across apps. */
+    fun incrementOpens(ctx: Context, platform: Platform): Int {
+        val today = LocalDate.now()
+        val k = opensKey(today)
+        val ak = appOpensKey(today, platform)
         val p = prefs(ctx)
         val opens = p.getInt(k, 0) + 1
-        p.edit().putInt(k, opens).apply()
+        p.edit().putInt(k, opens).putInt(ak, p.getInt(ak, 0) + 1).apply()
         return opens
     }
 
+    /** Opens a day before the pause screen starts (Settings → Pause before opening: 3, 5 or 10). */
+    fun freeOpens(ctx: Context): Int = prefs(ctx).getInt(KEY_FREE_OPENS, FREE_OPENS)
+    fun setFreeOpens(ctx: Context, value: Int) = prefs(ctx).edit().putInt(KEY_FREE_OPENS, value.coerceIn(1, 50)).apply()
+
     /** Seconds the pause screen waits on the [opens]-th open of the day: 0 for free opens, then 3, 5, 10 … 30. */
-    fun pauseSecondsFor(opens: Int): Int =
-        if (opens <= FREE_OPENS) 0
-        else PAUSE_STEPS[minOf(opens - FREE_OPENS - 1, PAUSE_STEPS.lastIndex)]
+    fun pauseSecondsFor(opens: Int, free: Int = FREE_OPENS): Int =
+        if (opens <= free) 0
+        else PAUSE_STEPS[minOf(opens - free - 1, PAUSE_STEPS.lastIndex)]
+
+    fun pauseSecondsFor(ctx: Context, opens: Int): Int = pauseSecondsFor(opens, freeOpens(ctx))
 
     fun pauseOnOpen(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_PAUSE, true)
     fun setPauseOnOpen(ctx: Context, value: Boolean) = prefs(ctx).edit().putBoolean(KEY_PAUSE, value).apply()
+
+    /** The ongoing "N reels today" notification, which also keeps counting alive (More screen). */
+    fun ongoingNotification(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_ONGOING, true)
+    fun setOngoingNotification(ctx: Context, value: Boolean) = prefs(ctx).edit().putBoolean(KEY_ONGOING, value).apply()
+
+    // Housekeeping
+
+    /**
+     * Drops per-hour, per-app and per-app-time keys older than [KEEP_DETAIL_DAYS], and everything
+     * else dated older than [KEEP_DAYS]. SharedPreferences rewrites the whole file on every
+     * save, so without this every counted reel would get slower as the months go by. Runs at most
+     * once a day.
+     */
+    fun prune(ctx: Context, today: LocalDate = LocalDate.now()) {
+        val p = prefs(ctx)
+        if (p.getString(KEY_PRUNED, null) == today.toString()) return
+        val stale = staleKeys(p.all.keys, today)
+        val edit = p.edit().putString(KEY_PRUNED, today.toString())
+        stale.forEach { edit.remove(it) }
+        edit.apply()
+    }
+
+    /** The keys [prune] removes from [keys] on [today]; split out so it can be tested. */
+    fun staleKeys(keys: Collection<String>, today: LocalDate): List<String> {
+        val detailCutoff = today.minusDays(KEEP_DETAIL_DAYS)
+        val cutoff = today.minusDays(KEEP_DAYS)
+        return keys.filter { key ->
+            val parts = key.split('|')
+            if (parts.size < 2) return@filter false
+            val day = try {
+                LocalDate.parse(parts[1])
+            } catch (e: Exception) {
+                return@filter false
+            }
+            val detail = parts[0] == "hour" || parts[0] == "app" || parts[0] == "time" || (parts[0] == "opens" && parts.size > 2)
+            day.isBefore(if (detail) detailCutoff else cutoff)
+        }
+    }
+
+    /** Per-app and per-hour detail is kept for this many days (two calendar months fit). */
+    const val KEEP_DETAIL_DAYS = 70L
+    /** Daily totals, opens and limit hits are kept for about two years. */
+    const val KEEP_DAYS = 730L
 
     // Other settings
 
@@ -277,12 +332,20 @@ object CountStore {
     fun setShowBadge(ctx: Context, value: Boolean) = prefs(ctx).edit().putBoolean(KEY_BADGE, value).apply()
 
     /**
-     * One of AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM, MODE_NIGHT_NO or MODE_NIGHT_YES. New
-     * installs start in dark mode, since the Night Garden design is dark-first.
+     * The app's theme. New installs start in Dark (Night Garden), since late-night scrolling
+     * happens in the dark. Earlier versions stored only a night mode; that's carried over.
      */
-    fun themeMode(ctx: Context): Int =
-        prefs(ctx).getInt(KEY_THEME, AppCompatDelegate.MODE_NIGHT_YES)
-    fun setThemeMode(ctx: Context, value: Int) = prefs(ctx).edit().putInt(KEY_THEME, value).apply()
+    fun theme(ctx: Context): AppTheme {
+        val p = prefs(ctx)
+        p.getString(KEY_THEME_CHOICE, null)?.let { name -> AppTheme.entries.firstOrNull { it.name == name }?.let { return it } }
+        return when (p.getInt(KEY_THEME, AppCompatDelegate.MODE_NIGHT_YES)) {
+            AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM -> AppTheme.SYSTEM
+            AppCompatDelegate.MODE_NIGHT_NO -> AppTheme.LIGHT
+            else -> AppTheme.DARK
+        }
+    }
+
+    fun setTheme(ctx: Context, value: AppTheme) = prefs(ctx).edit().putString(KEY_THEME_CHOICE, value.name).apply()
 
     /**
      * How far to move the counter from its spot just below the camera, in dp; negative is up.
@@ -305,8 +368,8 @@ object CountStore {
     const val COUNTER_SIZE_DEFAULT = 56
     const val COUNTER_SIZE_MAX = 104
 
-    /** Whether the home-screen widgets show in the launcher's widget list (off while they're reworked). */
-    fun widgetsEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_WIDGETS, false)
+    /** Whether the home-screen widgets show in the launcher's widget list (More → Home-screen widgets). */
+    fun widgetsEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_WIDGETS, true)
     fun setWidgetsEnabled(ctx: Context, value: Boolean) = prefs(ctx).edit().putBoolean(KEY_WIDGETS, value).apply()
 
     /** Iris keeps changing mood but drops the wobble, sway, tears and huffs. */

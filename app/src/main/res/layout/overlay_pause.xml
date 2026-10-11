@@ -1,66 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pause before opening (design: "The healthy choice is the big button. The countdown breathes;
-     it isn't a bomb."). Always Night, over any app. -->
+<!-- Pause before opening (design "Pause screen"): Iris pleading, one question and two facts, a
+     countdown ring, and the safe choice under the thumb: Close is the big filled button at the
+     very bottom; Continue sits above it, locked until the countdown ends. Always Night. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/pauseRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/block_scrim"
     android:clickable="true"
     android:focusable="true"
+    android:gravity="center_horizontal"
     android:orientation="vertical"
-    android:paddingHorizontal="24dp"
-    android:paddingTop="48dp"
-    android:paddingBottom="32dp">
+    android:paddingHorizontal="22dp"
+    android:paddingTop="56dp"
+    android:paddingBottom="28dp">
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <FrameLayout
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:layout_gravity="center_horizontal">
-
-        <com.bhaskar.reelcounter.SpinnerRingView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-        <com.bhaskar.reelcounter.EyesView
-            android:id="@+id/pauseEyes"
-            android:layout_width="124dp"
-            android:layout_height="124dp"
-            android:layout_gravity="center" />
-    </FrameLayout>
-
-    <TextView
-        android:id="@+id/pauseCountdown"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="10dp"
-        android:fontFamily="@font/bricolage_grotesque"
-        android:fontFeatureSettings="tnum"
-        android:fontVariationSettings="'wght' 700"
-        android:textColor="@color/night_faint"
-        android:textSize="14sp" />
+    <com.bhaskar.reelcounter.EyesView
+        android:id="@+id/pauseEyes"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:contentDescription="@string/iris_description" />
 
     <TextView
         android:id="@+id/pauseTitle"
         style="@style/TextAppearance.ReelCounter.Big"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
         android:layout_marginTop="10dp"
-        android:gravity="center"
-        android:textColor="@color/film_fg" />
+        android:gravity="center" />
 
     <TextView
         android:id="@+id/pauseMessage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="8dp"
+        android:fontFeatureSettings="tnum"
         android:gravity="center"
         android:textColor="@color/film_muted"
         android:textSize="14sp" />
@@ -68,21 +42,44 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1.4" />
+        android:layout_weight="1" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/pauseLeave"
+    <FrameLayout
+        android:layout_width="96dp"
+        android:layout_height="96dp">
+
+        <com.bhaskar.reelcounter.TimerRingView
+            android:id="@+id/pauseRing"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <TextView
+            android:id="@+id/pauseCountdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:fontFamily="@font/bricolage_grotesque"
+            android:fontFeatureSettings="tnum"
+            android:fontVariationSettings="'wght' 800"
+            android:textColor="@color/film_fg"
+            android:textSize="28sp" />
+    </FrameLayout>
+
+    <View
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:backgroundTint="@color/night_calm"
-        android:text="@string/pause_leave"
-        android:textColor="@color/night_on_calm" />
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/pauseContinue"
-        style="@style/Widget.ReelCounter.Button.Ghost"
+        style="@style/Widget.Rr.Button.OverlayQuiet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/pauseLeave"
+        style="@style/Widget.Rr.Button.Overlay"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="@color/night_faint" />
+        android:layout_marginTop="10dp" />
 </LinearLayout>

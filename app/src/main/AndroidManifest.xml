@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -67,22 +66,21 @@
             android:name=".OnboardingActivity"
             android:exported="false" />
 
-        <activity
-            android:name=".AppDetailActivity"
-            android:exported="false"
-            android:parentActivityName=".MainActivity" />
+        <!-- Screens one level down (design/Rokoreels App Flow.html) -->
+        <activity android:name=".AllAppsActivity" android:exported="false" android:parentActivityName=".MainActivity" />
+        <activity android:name=".AppDetailActivity" android:exported="false" android:parentActivityName=".MainActivity" />
+        <activity android:name=".UsageActivity" android:exported="false" android:parentActivityName=".MainActivity" />
+        <activity android:name=".SettingsActivity" android:exported="false" android:parentActivityName=".MainActivity" />
+        <activity android:name=".AppRulesActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
+        <activity android:name=".FocusActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
+        <activity android:name=".FocusEditActivity" android:exported="false" android:parentActivityName=".FocusActivity" />
+        <activity android:name=".IrisSettingsActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
+        <activity android:name=".MoreActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
+        <activity android:name=".PermissionsActivity" android:exported="false" android:parentActivityName=".SettingsActivity" />
 
-        <activity
-            android:name=".UsageActivity"
-            android:exported="false"
-            android:parentActivityName=".MainActivity" />
-
-        <!-- Home-screen widgets (code in the widget package) -->
-
-        <!-- Widgets are hidden until turned on in Settings, while they're being redesigned. -->
+        <!-- Home-screen widgets (code in the widget package); More → Home-screen widgets hides them. -->
         <receiver
             android:name=".widget.TodayWidget"
-            android:enabled="false"
             android:exported="false"
             android:label="@string/widget_today_label">
             <intent-filter>
@@ -95,7 +93,6 @@
 
         <receiver
             android:name=".widget.DashboardWidget"
-            android:enabled="false"
             android:exported="false"
             android:label="@string/widget_dashboard_label">
             <intent-filter>
@@ -106,7 +103,7 @@
                 android:resource="@xml/widget_dashboard_info" />
         </receiver>
 
-        <!-- Taps on the quick-actions widget, and timed widget refreshes -->
+        <!-- The ongoing "N reels today" notification that keeps counting alive -->
         <service
             android:name=".KeepAliveService"
             android:exported="false"

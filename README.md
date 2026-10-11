@@ -1,33 +1,38 @@
-# Reel Counter
+# Rokoreels
 
-![Reel Counter: counts every Reel and Short you swipe, and stops you at your daily limit](docs/social-preview.png)
+![Rokoreels: counts every Reel and Short you swipe, and stops you at your daily limit](docs/social-preview.png)
 
-An Android app that counts the Reels and Shorts you swipe through, shows the count in a small
-animated "island" at the top of the screen, and stops you at a daily limit you choose.
+**Every reel, counted.** Rokoreels is an Android app that counts the Reels and Shorts you swipe
+through, shows the count with Iris (a little face by your camera whose mood follows your day),
+and helps you stop when you mean to.
 
-<img src="docs/island-on-shorts.png" alt="The reel island showing 14 over a YouTube Short" width="300" align="right">
+<img src="docs/island-on-shorts.png" alt="Iris showing 14 over a YouTube Short" width="300" align="right">
 
 ## Features
 
 - **One count across apps.** Instagram Reels, YouTube Shorts, Snapchat Spotlight, TikTok, Moj
   and Josh all add to the same daily number.
-- **The reel island.** A clear-glass circle at the top of the screen with animated eyes and
-  today's count. It grows in when you open Reels or Shorts and shrinks away when you leave.
-- **Eyes with moods.**
-  - *Curious* while the count is low: the eyes glance around and blink, and look more worried
-    as you get closer to your limit.
-  - *Electrocuted* when you scroll fast (3 or more reels within 6 seconds): spiral pupils and
-    lightning.
-  - *Angry* at your limit: red eyes, brows down, a 💢 and a shake.
-- **Daily limit.** When you reach it, Reels, Shorts and Spotlight are blocked until midnight. The
-  rest of each app keeps working. TikTok, Moj and Josh are closed, since they are only short
-  videos.
-- **Pause before opening.** The first 5 social app opens each day are free. After that, opening one
-  shows a pause screen that waits 3, 5, 10, 15, 20, 25 and then 30 seconds before you can
-  continue, with a button to close the app instead.
-- **Screen time.** Time spent and opens per social media app (16 apps, including WhatsApp,
-  Facebook, X and Reddit), read from the same Android usage data that Digital Wellbeing uses.
-- **History.** A 7-day chart of reels watched.
+- **Iris over reel apps.** A glass face by the camera with today's count and your time in the
+  app. She's calm when the count is low, gets curious, worried and sad as you near your limit,
+  and angry at it. Scroll fast and she's electrocuted; stop for a while and she dozes off.
+  Hold and drag her anywhere; tap to poke her.
+- **Home, one screen.** Iris in a ring that fills with your day, reels and minutes today, one
+  sentence about how it's going, and your top three apps. No scrolling.
+- **Progress.** This week or this month: days under your limit (a calendar for the month),
+  compared with the week or month before and time saved, your streak, when in the day reels
+  get you, and each app's trend. Phone screen time is one tap away.
+- **Rules per app.** Block an app's Reels outright, give it its own reel limit, or a daily timer
+  for the whole app. Everything about an app lives on its own page.
+- **Daily limit.** At your limit, Reels, Shorts and Spotlight close until midnight; the rest of
+  each app keeps working. TikTok, Moj and Josh close entirely, since they're only short videos.
+- **Focus hours.** Lock chosen apps on a schedule (Work, Study, Sleep, Gym or your own), with
+  an emergency unlock of 5 minutes, twice a day.
+- **Pause before opening.** After a few free opens a day (3, 5 or 10), opening a reel app
+  shows a short countdown first, with Close as the big button.
+- **Four themes.** Dark (Night Garden, the default), Light (Paper), Royal (purple and gold) and
+  System.
+- **Home-screen widgets.** Iris in her ring with today's count, and a dashboard with your top
+  apps and the week.
 
 Everything stays on your phone. The app has no internet permission and no account.
 
@@ -43,38 +48,42 @@ Requires Android 8.0 or newer.
 
 ## Set up
 
-| Step | Where | Why |
-|---|---|---|
-| Turn on **Reel Counter** in Accessibility settings | App → *Open Accessibility settings* → Downloaded apps | Detects the Reels/Shorts screen and your swipes |
-| Allow notifications | Prompt on first launch | The ongoing "N reels today" notification keeps counting running |
-| Allow background running | App → *Allow background running* | Stops battery saving from switching counting off |
-| Allow usage access (optional) | App → *Allow usage access* → Permit usage access | Shows screen time per app |
+The first-run tour walks through this in six short steps.
+
+| Step | Why |
+|---|---|
+| Pick your apps | Which apps are counted |
+| Allow usage access (optional) | Shows what reels cost you last week, and screen time per app |
+| Set your limit | 30 a day is the default |
+| Turn on **Rokoreels** in Accessibility settings | Detects the Reels/Shorts screen and your swipes |
+| Allow notifications and unrestricted battery | Keeps counting running in the background |
 
 On Android 13 and newer, the Accessibility switch is greyed out for apps installed outside the
-Play Store. Open **Settings → Apps → Reel Counter → ⋮ → Allow restricted settings**, then turn
+Play Store. Open **Settings → Apps → Rokoreels → ⋮ → Allow restricted settings**, then turn
 it on again.
 
-On **OnePlus / OxygenOS**, also set **Settings → Apps → Reel Counter → Battery** to
-**Unrestricted** and lock the app in Recent apps, or the system may stop counting after a while.
+On **OnePlus / OxygenOS** and similar phones, also lock Rokoreels in Recent apps, or the system
+may stop counting after a while. **Settings → More → Permissions** shows what's missing.
 
 ## Permissions and privacy
 
 | Permission | Used for |
 |---|---|
-| Accessibility service | Knowing when a Reels/Shorts/Spotlight screen is open, counting swipes, showing the island and the pause and limit screens. The service only reacts to screen changes and scrolling. It does not read messages or what you type, and it ignores events from apps it doesn't support. |
-| Usage access | Screen time and opens per social app. |
-| Foreground service and notifications | The ongoing notification that keeps the app alive. |
+| Accessibility service | Knowing when a Reels/Shorts/Spotlight screen is open, counting swipes, showing Iris and the pause and block screens. It doesn't read messages or what you type, and ignores apps it doesn't support. |
+| Usage access | Screen time and opens per app. |
+| Foreground service and notifications | The ongoing "N reels today" notification that keeps counting alive (can be turned off in More). |
 | Ignore battery optimizations | Asking Android not to stop the app in the background. |
 
 Counts and settings are stored in the app's private storage on the phone. Nothing is uploaded.
+Android's own backup may copy counts and settings to a new phone; the crash log never leaves it.
 
 ## Supported apps
 
 | App | Counted | How it's recognised |
 |---|---|---|
 | Instagram Reels | ✅ | Reels viewer screen |
-| YouTube Shorts | ✅ | Shorts player screen |
-| Snapchat Spotlight | ⚠️ Not verified yet | Best guess at the Spotlight screen |
+| YouTube Shorts | ✅ | Shorts player progress bar |
+| Snapchat Spotlight | ✅ | Spotlight viewer text changes |
 | TikTok, Moj, Josh | ✅ | Whole app (it's all short videos) |
 
 Apps sometimes rename their internal screens in updates. If one stops being counted, see
@@ -87,8 +96,9 @@ Needs JDK 17 or 21 and the Android SDK (compile SDK 35).
 ```bash
 git clone https://github.com/Bhaskar-2110/reel-counter-android.git
 cd reel-counter-android
-./gradlew assembleDebug
-# APK: app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug        # app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest    # unit tests
+./gradlew assembleRelease      # shrunk with R8; sign it before installing
 ```
 
 Or open the folder in Android Studio and press **Run ▶** with your phone connected.
@@ -102,18 +112,17 @@ ignored because those views don't fill the screen.
 
 | File | Role |
 |---|---|
-| [`ReelCounterService.kt`](app/src/main/java/com/bhaskar/reelcounter/ReelCounterService.kt) | Accessibility service: recognises short-video screens, counts swipes, shows the island and the pause and limit screens |
+| [`ReelCounterService.kt`](app/src/main/java/com/bhaskar/reelcounter/ReelCounterService.kt) | Accessibility service: recognises short-video screens, counts swipes, shows Iris and the pause and block screens |
 | [`Platform.kt`](app/src/main/java/com/bhaskar/reelcounter/Platform.kt) | The supported apps and how each one's short-video screen is recognised |
-| [`CountStore.kt`](app/src/main/java/com/bhaskar/reelcounter/CountStore.kt) | Daily counts, opens, limit and settings |
-| [`KeepAliveService.kt`](app/src/main/java/com/bhaskar/reelcounter/KeepAliveService.kt) | Foreground service with the ongoing notification |
-| [`UsageRepository.kt`](app/src/main/java/com/bhaskar/reelcounter/UsageRepository.kt) | Screen time and opens from `UsageStatsManager` |
-| [`Eyes.kt`](app/src/main/java/com/bhaskar/reelcounter/Eyes.kt) | The animated eyes and their moods |
-| [`IslandView.kt`](app/src/main/java/com/bhaskar/reelcounter/IslandView.kt) | The glass island with the eyes and the rolling count |
-| [`MainActivity.kt`](app/src/main/java/com/bhaskar/reelcounter/MainActivity.kt) | The app's main screen |
+| [`CountStore.kt`](app/src/main/java/com/bhaskar/reelcounter/CountStore.kt) | Daily counts, time, opens, limit and settings |
+| [`Blocking.kt`](app/src/main/java/com/bhaskar/reelcounter/Blocking.kt) | Per-app blocking, focus hours and emergency unlocks |
+| [`IrisRig.kt`](app/src/main/java/com/bhaskar/reelcounter/IrisRig.kt), [`IrisRenderer.kt`](app/src/main/java/com/bhaskar/reelcounter/IrisRenderer.kt) | Iris: her moods, springs and drawing |
+| [`IslandView.kt`](app/src/main/java/com/bhaskar/reelcounter/IslandView.kt) | Iris over other apps, with the rolling count and timer |
+| [`MainActivity.kt`](app/src/main/java/com/bhaskar/reelcounter/MainActivity.kt) | Home and Progress |
+| [`SettingsActivity.kt`](app/src/main/java/com/bhaskar/reelcounter/SettingsActivity.kt) and the other `*Activity.kt` files | Settings, app pages, focus hours, Iris, More, permissions, screen time, onboarding |
+| [`widget/`](app/src/main/java/com/bhaskar/reelcounter/widget) | Home-screen widgets |
 
-On Android 12 and newer, a separate window behind the island blurs the video under it for the
-frosted-glass look. Where window blur is off (for example in battery saver), the island uses a
-slightly darker glass instead.
+The screens and their flow follow the "Rokoreels App Flow" design (kept outside the repository).
 
 ## If an app stops being counted
 
@@ -126,12 +135,9 @@ To support a new app, add an entry to `Platform.kt`.
 ## Known limitations
 
 - The first video you open in a session isn't counted until you swipe to the next one.
-- Snapchat Spotlight detection hasn't been tested on a real device yet.
 - Opening an app from the Recent apps screen counts as a new open for the pause screen.
 
+## Developers
 
-
-
-# developer name:
-- aman shukla
-- bhaskar shukla 
+- Aman Shukla
+- Bhaskar Shukla

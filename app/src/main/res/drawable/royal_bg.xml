@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Royal: a deep violet gradient that warms into glowing gold at the top corner. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape>
+            <gradient
+                android:angle="285"
+                android:centerColor="#FF5A1A93"
+                android:endColor="#FF1E0A38"
+                android:startColor="#FF3A0E6B"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <gradient
+                android:centerX="0.1"
+                android:centerY="0.3"
+                android:endColor="#00AA50FF"
+                android:gradientRadius="70%p"
+                android:startColor="#59AA50FF"
+                android:type="radial" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <gradient
+                android:centerX="0"
+                android:centerY="1"
+                android:endColor="#00FF9628"
+                android:gradientRadius="80%p"
+                android:startColor="#47FF9628"
+                android:type="radial" />
+        </shape>
+    </item>
+    <item>
+        <shape>
+            <gradient
+                android:centerX="1"
+                android:centerY="0"
+                android:endColor="#00FFCB45"
+                android:gradientRadius="85%p"
+                android:startColor="#6BFFCB45"
+                android:type="radial" />
+        </shape>
+    </item>
+</layer-list>
