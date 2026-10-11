@@ -137,6 +137,3 @@ To support a new app, add an entry to `Platform.kt`.
 - The first video you open in a session isn't counted until you swipe to the next one.
 - Opening an app from the Recent apps screen counts as a new open for the pause screen.
 
-## Developers
-
-- Aman Shukla
