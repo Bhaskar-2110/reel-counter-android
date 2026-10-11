@@ -34,7 +34,8 @@ and helps you stop when you mean to.
 - **Home-screen widgets.** Iris in her ring with today's count, and a dashboard with your top
   apps and the week.
 
-Everything stays on your phone. The app has no internet permission and no account.
+What's on your screen never leaves your phone. Signing in with Google is optional, and the app
+sends anonymous usage stats (which you can turn off). See [Permissions and privacy](#permissions-and-privacy).
 
 ## Install
 
@@ -73,8 +74,17 @@ may stop counting after a while. **Settings → More → Permissions** shows wha
 | Usage access | Screen time and opens per app. |
 | Foreground service and notifications | The ongoing "N reels today" notification that keeps counting alive (can be turned off in More). |
 | Ignore battery optimizations | Asking Android not to stop the app in the background. |
+| Internet | Optional Google sign-in (Firebase Authentication) and anonymous usage stats (Google Analytics for Firebase). |
 
-Counts and settings are stored in the app's private storage on the phone. Nothing is uploaded.
+Counts and settings are stored in the app's private storage on the phone. Nothing the
+Accessibility service sees on screen is ever sent.
+
+**Anonymous usage stats** (on by default, **More → Share anonymous usage stats** turns them off)
+go to Google Analytics for Firebase: onboarding steps finished, permissions granted, limit
+changes, when a limit, pause or block screen happens, sign-in/sign-out, and once a day
+yesterday's reel total per app, minutes and whether you stayed under your limit. No names,
+emails or advertising ID, and the stats aren't linked to your account.
+If you sign in, Firebase keeps your Google name and email to identify your account.
 Android's own backup may copy counts and settings to a new phone; the crash log never leaves it.
 
 ## Supported apps
@@ -102,6 +112,10 @@ cd reel-counter-android
 ```
 
 Or open the folder in Android Studio and press **Run ▶** with your phone connected.
+
+Google sign-in needs a Firebase project: add an Android app `com.reelcounter` with your signing
+key's SHA-1, enable **Authentication → Google**, and put its `google-services.json` in `app/`
+(it's git-ignored). Without the file the app still builds, and sign-in shows as not set up.
 
 ## How it works
 

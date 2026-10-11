@@ -101,6 +101,7 @@ class MainActivity : BaseActivity(), SharedPreferences.OnSharedPreferenceChangeL
         render()
         if (isServiceEnabled(this) && CountStore.ongoingNotification(this)) KeepAliveService.start(this)
         WidgetUpdater.updateAll(this)
+        Analytics.reportYesterday(this)
     }
 
     override fun onPause() {

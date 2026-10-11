@@ -43,6 +43,8 @@ class MoreActivity : PageActivity() {
         Ui.setRow(info, R.drawable.ic_shield, getString(R.string.privacy), getString(R.string.privacy_sub), listOf(Ui.chevron(this))) {
             dialog(R.string.privacy, getString(R.string.privacy_text))
         }
+        Ui.switchRow(info, R.drawable.ic_progress, getString(R.string.share_stats), getString(R.string.share_stats_sub),
+            Analytics.enabled(this)) { Analytics.setEnabled(this, it) }
         val version = try {
             packageManager.getPackageInfo(packageName, 0).versionName ?: ""
         } catch (e: Exception) {

@@ -112,6 +112,7 @@ class ReelCounterService : AccessibilityService() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         CountStore.markServiceStarted(this)
         safely("prune") { CountStore.prune(this) }
+        safely("summary") { Analytics.reportYesterday(this) }
         // After a restart (an update, or the phone killing the app), the app already on screen
         // isn't a new open.
         foregroundPkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
@@ -382,7 +383,10 @@ class ReelCounterService : AccessibilityService() {
         // or a binge (3 reels in 6 s: electrocuted).
         island?.onReel(maxOf(after, timeProgress(platform)))
 
-        if (after >= 1f) CountStore.markLimitHit(this, LocalDate.now())
+        if (after >= 1f) {
+            CountStore.markLimitHit(this, LocalDate.now())
+            Analytics.limitReached(this, platform, "reels")
+        }
 
         // The ongoing notification's service refreshes widgets; without it, do it here.
         if (!CountStore.ongoingNotification(this)) {
@@ -537,6 +541,7 @@ class ReelCounterService : AccessibilityService() {
             R.string.pause_facts, Ui.ordinal(opens), resources.getQuantityString(R.plurals.reels_so_far, total, total),
         )
         view.findViewById<EyesView>(R.id.pauseEyes).setMood(Mood.PLEADING)
+        Analytics.pauseShown(this, platform, opens)
         view.findViewById<TimerRingView>(R.id.pauseRing).apply {
             color = getColor(R.color.night_pleading)
             start(seconds)
@@ -544,6 +549,7 @@ class ReelCounterService : AccessibilityService() {
         view.findViewById<MaterialButton>(R.id.pauseLeave).apply {
             text = getString(R.string.close_app, platform.shortName)
             setOnClickListener {
+                Analytics.pauseResult(this@ReelCounterService, platform, "close")
                 hidePauseScreen()
                 performGlobalAction(GLOBAL_ACTION_HOME)
             }
@@ -551,6 +557,7 @@ class ReelCounterService : AccessibilityService() {
         continueButton.isEnabled = false
         continueButton.alpha = 0.4f
         continueButton.setOnClickListener {
+            Analytics.pauseResult(this, platform, "continue")
             hidePauseScreen()
             // The counter comes back pleading: "are you sure?"
             pleadUntil = SystemClock.elapsedRealtime() + PLEAD_AFTER_PAUSE_MS
@@ -733,10 +740,14 @@ class ReelCounterService : AccessibilityService() {
             return
         }
         lastBlockAt = now
-        if (timeUp) CountStore.markLimitHit(this, LocalDate.now())
+        if (timeUp) {
+            CountStore.markLimitHit(this, LocalDate.now())
+            Analytics.limitReached(this, platform, "time")
+        }
         val wholeApp = timeUp || platform.isWholeApp || reason is BlockReason.Focus
         performGlobalAction(if (wholeApp) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK)
         showBlockScreen(platform, timeUp, reason)
+        Analytics.blockShown(this, platform, timeUp, reason)
         handler.removeCallbacks(recheck)
         handler.postDelayed(recheck, BLOCK_GAP_MS)
     }

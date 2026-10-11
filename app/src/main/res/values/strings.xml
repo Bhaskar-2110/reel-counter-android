@@ -4,7 +4,7 @@
     <string name="app_name">Rokoreels</string>
 
     <string name="service_label">Rokoreels</string>
-    <string name="service_description">Counts the short videos you swipe through in Instagram Reels, YouTube Shorts, Snapchat Spotlight, TikTok, Moj and Josh, shows Iris while you watch, and takes you out of them when you reach your daily limit or your focus hours. It looks only at which screen is open, reads no text or messages, and keeps the count on this phone.</string>
+    <string name="service_description">Counts the short videos you swipe through in Instagram Reels, YouTube Shorts, Snapchat Spotlight, TikTok, Moj and Josh, shows Iris while you watch, and takes you out of them when you reach your daily limit or your focus hours. It looks only at which screen is open, reads no text or messages, and never sends what\'s on your screen anywhere.</string>
 
     <!-- Common -->
     <string name="back">Back</string>
@@ -243,10 +243,12 @@
     <string name="help">Help and feedback</string>
     <string name="help_text">• Counting stopped? Open Settings → the Fix card, or More → Permissions, and turn everything green.\n\n• Accessibility switch greyed out? Open App info for Rokoreels, tap ⋮ → Allow restricted settings, then try again.\n\n• The first reel you open isn\'t counted until you swipe to the next one.\n\n• An app stopped being counted after an update? It renamed its reels screen; tell us which app and version.</string>
     <string name="privacy">Privacy</string>
-    <string name="privacy_sub">Your reels never leave your phone</string>
-    <string name="privacy_text">Rokoreels has no internet permission and no account. It only notices which app and screen are open and when you swipe, never your messages, passwords or what\'s in the videos. Counts and settings stay in the app\'s private storage on this phone.</string>
+    <string name="privacy_sub">What you watch never leaves your phone</string>
+    <string name="privacy_text">Rokoreels only notices which app and screen are open and when you swipe, never your messages, passwords or what\'s in the videos. Counts and settings are kept in the app\'s private storage on this phone.\n\nAnonymous usage stats (Google Analytics for Firebase): which setup steps you finish, when a limit, pause or block screen happens, and a daily total of reels per app. No names, emails or advertising ID. Turn it off in More → Share anonymous usage stats.\n\nSigning in with Google is optional and links only your name and email to an account.</string>
+    <string name="share_stats">Share anonymous usage stats</string>
+    <string name="share_stats_sub">Daily reel totals and which screens you use. No names or what you watch.</string>
     <string name="about">About Rokoreels</string>
-    <string name="about_text">Rokoreels %1$s\n\nCounts every reel and helps you stop when you mean to.\n\nMade by Aman Shukla.\n\nFonts: Bricolage Grotesque and Inter, both under the SIL Open Font License.</string>
+    <string name="about_text">Rokoreels %1$s\n\nCounts every reel and helps you stop when you mean to.\n\nFonts: Bricolage Grotesque and Inter, both under the SIL Open Font License.</string>
 
     <!-- Counting health -->
     <string name="counting_health">Counting health</string>
@@ -320,6 +322,17 @@
     <string name="onb_welcome_title">Every reel, counted.</string>
     <string name="onb_welcome_text">We count the reels you watch and help you stop when you mean to.</string>
     <string name="get_started">Get started</string>
+    <string name="have_account">I already have an account</string>
+
+    <!-- Account (Google sign-in through Firebase) -->
+    <string name="account">Account</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_in_google_sub">Optional. Only your name and email are linked.</string>
+    <string name="sign_in_not_set_up">Sign-in isn\'t set up in this build.</string>
+    <string name="sign_in_failed">Couldn\'t sign in. Check your connection and try again.</string>
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="sign_out">Sign out</string>
+    <string name="sign_out_confirm">Sign out of %1$s? Your counts and settings stay on this phone.</string>
     <string name="onb_continue">Continue</string>
     <string name="onb_apps_title">Which apps pull you in?</string>
     <string name="onb_apps_text">We\'ll count reels in these. You can change it later.</string>
@@ -346,7 +359,7 @@
     <string name="onb_access_yes1">Sees which app is open and when a new reel starts</string>
     <string name="onb_access_yes2">Shows Iris over reel apps</string>
     <string name="onb_access_no1">Never reads your messages, passwords or what\'s in the videos</string>
-    <string name="onb_access_no2">Nothing leaves your phone</string>
+    <string name="onb_access_no2">What\'s on your screen never leaves your phone</string>
     <string name="onb_access_agree">I understand how Rokoreels uses Accessibility</string>
     <string name="onb_access_required">Rokoreels can\'t count reels without this. You can turn it off any time in Settings.</string>
     <string name="onb_running_required">Allow notifications to keep going. Without them, Android stops the counter after a while.</string>
