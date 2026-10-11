@@ -47,5 +47,15 @@ hs_err_pid*
 
 # Personal notes, kept out of the repo
 IMPLEMENTED.md
+implemented.md
 CLAUDE.md
 design_iris_docs/
+
+
+design
+design/
+
+prompt.md
+test-report.md
+
+

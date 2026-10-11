@@ -1,28 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- Night Garden: Inter for text, Bricolage Grotesque for headings and numbers. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Rokoreels (design/Rokoreels App Flow.html). Dark · Night Garden and Light · Paper come
+         from values-night/colors.xml and values/colors.xml through DayNight; Royal overrides the
+         colours below. Inter for text, Bricolage Grotesque for headings and numbers. -->
     <style name="Theme.ReelCounter" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/accent</item>
-        <item name="colorOnPrimary">@color/on_accent</item>
-        <item name="colorSecondaryContainer">@color/raised</item>
-        <item name="colorOnSecondaryContainer">@color/fg</item>
-        <item name="colorSurface">@color/surface</item>
-        <item name="colorOnSurface">@color/fg</item>
-        <item name="colorOnSurfaceVariant">@color/muted</item>
-        <item name="colorOutline">@color/line</item>
-        <item name="android:colorBackground">@color/bg</item>
-        <item name="android:windowBackground">@color/bg</item>
-        <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="rrBg">@color/bg</item>
+        <item name="rrSurface">@color/surface</item>
+        <item name="rrRaised">@color/raised</item>
+        <item name="rrLine">@color/line</item>
+        <item name="rrText">@color/fg</item>
+        <item name="rrText2">@color/muted</item>
+        <item name="rrText3">@color/faint</item>
+        <item name="rrAccent">@color/accent</item>
+        <item name="rrOnAccent">@color/on_accent</item>
+        <item name="rrTrack">@color/track</item>
+        <item name="rrNav">@color/nav</item>
+        <item name="rrSheet">@color/surface</item>
+        <item name="rrM0">@color/mood_calm</item>
+        <item name="rrM1">@color/mood_curious</item>
+        <item name="rrM2">@color/mood_worried</item>
+        <item name="rrM3">@color/mood_sad</item>
+        <item name="rrM4">@color/mood_angry</item>
+        <item name="rrCardBg">@drawable/card_bg</item>
+        <item name="rrScreenBg">@color/bg</item>
+
+        <item name="colorPrimary">?attr/rrAccent</item>
+        <item name="colorOnPrimary">?attr/rrOnAccent</item>
+        <item name="colorSecondaryContainer">?attr/rrRaised</item>
+        <item name="colorOnSecondaryContainer">?attr/rrText</item>
+        <item name="colorSurface">?attr/rrSurface</item>
+        <item name="colorSurfaceContainerLow">?attr/rrSheet</item>
+        <item name="colorOnSurface">?attr/rrText</item>
+        <item name="colorOnSurfaceVariant">?attr/rrText2</item>
+        <item name="colorOutline">?attr/rrLine</item>
+        <item name="android:colorBackground">?attr/rrBg</item>
+        <item name="android:windowBackground">?attr/rrScreenBg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">?attr/rrNav</item>
         <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">@bool/light_system_bars</item>
         <item name="android:fontFamily">@font/inter</item>
         <item name="textAppearanceBodyLarge">@style/TextAppearance.ReelCounter.Body</item>
         <item name="textAppearanceBodyMedium">@style/TextAppearance.ReelCounter.Body</item>
         <item name="textAppearanceLabelLarge">@style/TextAppearance.ReelCounter.Label</item>
         <item name="textAppearanceTitleLarge">@style/TextAppearance.ReelCounter.Title</item>
         <item name="textAppearanceHeadlineSmall">@style/TextAppearance.ReelCounter.Title</item>
-        <item name="materialButtonStyle">@style/Widget.ReelCounter.Button</item>
+        <item name="materialButtonStyle">@style/Widget.Rr.Button</item>
+        <item name="materialSwitchStyle">@style/Widget.Rr.Switch</item>
         <item name="materialAlertDialogTheme">@style/ThemeOverlay.ReelCounter.Dialog</item>
+        <item name="bottomSheetDialogTheme">@style/ThemeOverlay.Rr.BottomSheet</item>
+        <item name="materialTimePickerTheme">@style/ThemeOverlay.Rr.TimePicker</item>
+    </style>
+
+    <!-- Royal · Purple and gold: violet gradient, gold accent, frosted cards. Always dark. -->
+    <style name="Theme.ReelCounter.Royal">
+        <item name="rrBg">@color/royal_bg</item>
+        <item name="rrSurface">@color/royal_surface</item>
+        <item name="rrRaised">@color/royal_raised</item>
+        <item name="rrLine">@color/royal_line</item>
+        <item name="rrText">@color/royal_fg</item>
+        <item name="rrText2">@color/royal_muted</item>
+        <item name="rrText3">@color/royal_faint</item>
+        <item name="rrAccent">@color/royal_accent</item>
+        <item name="rrOnAccent">@color/royal_on_accent</item>
+        <item name="rrTrack">@color/royal_track</item>
+        <item name="rrNav">@color/royal_nav</item>
+        <item name="rrSheet">#FF2C0E50</item>
+        <item name="rrM0">@color/royal_m0</item>
+        <item name="rrM1">@color/royal_m1</item>
+        <item name="rrM2">@color/royal_m2</item>
+        <item name="rrM3">@color/royal_m3</item>
+        <item name="rrM4">@color/royal_m4</item>
+        <item name="rrScreenBg">@drawable/royal_bg</item>
+        <item name="android:navigationBarColor">#FF1E0A38</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>
 
     <!-- Android 12+ splash screen: Iris in the ring on the Night background, then the app theme. -->
@@ -34,8 +86,52 @@
 
     <style name="ThemeOverlay.ReelCounter.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
         <item name="android:fontFamily">@font/inter</item>
+        <item name="colorSurface">?attr/rrSheet</item>
+        <item name="colorSurfaceContainerHigh">?attr/rrSheet</item>
         <item name="materialAlertDialogTitleTextStyle">@style/TextAppearance.ReelCounter.DialogTitle</item>
         <item name="shapeAppearanceOverlay">@style/ShapeAppearance.ReelCounter.Large</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Rr.DialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Rr.DialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Rr.DialogButton</item>
+    </style>
+
+    <style name="Widget.Rr.DialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">?attr/rrAccent</item>
+    </style>
+
+    <style name="ThemeOverlay.Rr.BottomSheet" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.Rr.BottomSheet</item>
+        <item name="android:navigationBarColor">?attr/rrSheet</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Material3.BottomSheetDialog</item>
+    </style>
+
+    <style name="Widget.Rr.BottomSheet" parent="Widget.Material3.BottomSheet.Modal">
+        <item name="backgroundTint">?attr/rrSheet</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Rr.Sheet</item>
+    </style>
+
+    <style name="ShapeAppearance.Rr.Sheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">26dp</item>
+        <item name="cornerSizeTopRight">26dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <!-- The clock in the app's colours (it was stock purple and maroon). -->
+    <style name="ThemeOverlay.Rr.TimePicker" parent="ThemeOverlay.Material3.MaterialTimePicker">
+        <item name="colorSurface">?attr/rrSheet</item>
+        <item name="colorPrimary">?attr/rrAccent</item>
+        <item name="colorOnPrimary">?attr/rrOnAccent</item>
+        <item name="colorPrimaryContainer">@color/accent_soft22</item>
+        <item name="colorOnPrimaryContainer">?attr/rrText</item>
+        <item name="colorTertiaryContainer">@color/accent_soft22</item>
+        <item name="colorOnTertiaryContainer">?attr/rrAccent</item>
+        <item name="colorSurfaceContainerHighest">?attr/rrRaised</item>
+        <item name="colorSurfaceContainerHigh">?attr/rrSheet</item>
+        <item name="colorOnSurface">?attr/rrText</item>
+        <item name="colorOnSurfaceVariant">?attr/rrText2</item>
+        <item name="colorOutline">?attr/rrLine</item>
     </style>
 
     <style name="TextAppearance.ReelCounter.DialogTitle" parent="MaterialAlertDialog.Material3.Title.Text">
@@ -48,7 +144,6 @@
         <item name="cornerSize">24dp</item>
     </style>
 
-    <!-- Type scale from the design: Bricolage for headlines and numbers, Inter for body. -->
     <style name="TextAppearance.ReelCounter.Body" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:fontFamily">@font/inter</item>
         <item name="fontFamily">@font/inter</item>
@@ -67,62 +162,163 @@
         <item name="android:textStyle">bold</item>
     </style>
 
-    <!-- "Big" headline (onboarding, pause and block screens): Bricolage 750, 29sp. -->
+    <!-- Headline on the pause and block screens: Bricolage 800, 27sp. -->
     <style name="TextAppearance.ReelCounter.Big" parent="">
         <item name="android:fontFamily">@font/bricolage_grotesque</item>
-        <item name="android:fontVariationSettings">\'wght\' 750</item>
-        <item name="android:textSize">29sp</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 800</item>
+        <item name="android:textSize">27sp</item>
         <item name="android:lineSpacingMultiplier">1.0</item>
-        <item name="android:textColor">@color/fg</item>
+        <item name="android:textColor">@color/film_fg</item>
     </style>
 
-    <!-- Section titles inside cards. -->
-    <style name="TextAppearance.ReelCounter.Section" parent="">
-        <item name="android:fontFamily">@font/bricolage_grotesque</item>
-        <item name="android:fontVariationSettings">\'wght\' 700</item>
-        <item name="android:textColor">@color/fg</item>
-        <item name="android:textSize">17sp</item>
-    </style>
-
-    <!-- Small uppercase labels, like "REELS BY APP". -->
-    <style name="TextAppearance.ReelCounter.Eyebrow" parent="">
+    <!-- Type scale from the design (sp): hero 40, screen title 22, card title 15, body 14–15,
+         label 12. -->
+    <style name="Rr.Text" parent="">
         <item name="android:fontFamily">@font/inter</item>
-        <item name="android:fontVariationSettings">\'wght\' 600</item>
+        <item name="android:textColor">?attr/rrText</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="Rr.Text.ScreenTitle">
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 700</item>
+        <item name="android:textSize">22sp</item>
+    </style>
+
+    <style name="Rr.Text.OnbTitle">
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 800</item>
+        <item name="android:textSize">30sp</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:lineSpacingMultiplier">1.05</item>
+    </style>
+
+    <style name="Rr.Text.Hero">
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 800</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textSize">40sp</item>
+    </style>
+
+    <style name="Rr.Text.Big">
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 800</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textSize">30sp</item>
+    </style>
+
+    <style name="Rr.Text.CardTitle">
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 700</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Rr.Text.RowTitle">
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 600</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="Rr.Text.Body">
+        <item name="android:textColor">?attr/rrText2</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="Rr.Text.Muted">
+        <item name="android:textColor">?attr/rrText3</item>
+        <item name="android:textSize">12.5sp</item>
+    </style>
+
+    <style name="Rr.Text.Sub">
+        <item name="android:textColor">?attr/rrText3</item>
+        <item name="android:textSize">11.5sp</item>
+    </style>
+
+    <!-- Small uppercase labels, like "TOP APPS TODAY". -->
+    <style name="Rr.Text.Label">
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 600</item>
         <item name="android:textAllCaps">true</item>
-        <item name="android:letterSpacing">0.06</item>
-        <item name="android:textColor">@color/faint</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">?attr/rrText3</item>
         <item name="android:textSize">12sp</item>
     </style>
 
-    <!-- Brand buttons: mint fill, 16dp corners, Inter 600. -->
-    <style name="Widget.ReelCounter.Button" parent="Widget.Material3.Button">
+    <style name="Rr.Text.Link">
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 600</item>
+        <item name="android:textColor">?attr/rrAccent</item>
+        <item name="android:textSize">12.5sp</item>
+        <item name="android:paddingVertical">6dp</item>
+        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
+        <item name="android:stateListAnimator">@animator/press_scale</item>
+    </style>
+
+    <style name="Rr.Text.Num">
+        <item name="android:fontFamily">@font/bricolage_grotesque</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 700</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <!-- Buttons: 16dp corners, Inter 700 15sp, shrink on press. -->
+    <style name="Widget.Rr.Button" parent="Widget.Material3.Button">
         <item name="cornerRadius">16dp</item>
         <item name="android:minHeight">52dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="backgroundTint">?attr/rrAccent</item>
+        <item name="android:textColor">?attr/rrOnAccent</item>
         <item name="android:textAppearance">@style/TextAppearance.ReelCounter.Label</item>
+        <item name="android:stateListAnimator">@animator/press_scale</item>
+        <item name="rippleColor">@color/press_ripple</item>
     </style>
 
-    <style name="Widget.ReelCounter.Button.Ghost" parent="Widget.Material3.Button.TextButton">
-        <item name="android:textColor">@color/faint</item>
+    <style name="Widget.Rr.Button.Secondary">
+        <item name="backgroundTint">?attr/rrRaised</item>
+        <item name="android:textColor">?attr/rrText</item>
+        <item name="strokeColor">?attr/rrLine</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+    <style name="Widget.Rr.Button.Ghost" parent="Widget.Material3.Button.TextButton">
+        <item name="android:textColor">?attr/rrText2</item>
         <item name="android:minHeight">48dp</item>
         <item name="android:textAppearance">@style/TextAppearance.ReelCounter.Label</item>
+        <item name="android:stateListAnimator">@animator/press_scale</item>
     </style>
 
-    <style name="Widget.ReelCounter.Button.Outline" parent="Widget.Material3.Button.OutlinedButton">
-        <item name="cornerRadius">16dp</item>
-        <item name="strokeColor">@color/line</item>
-        <item name="android:textColor">@color/fg</item>
-        <item name="android:textAppearance">@style/TextAppearance.ReelCounter.Label</item>
+    <!-- Design ".sw": accent track with an on-accent thumb, raised and faint when off. -->
+    <style name="Widget.Rr.Switch" parent="Widget.Material3.CompoundButton.MaterialSwitch">
+        <item name="trackTint">@color/switch_track</item>
+        <item name="thumbTint">@color/switch_thumb</item>
+        <item name="trackDecorationTint">@android:color/transparent</item>
+        <item name="android:minHeight">0dp</item>
     </style>
 
-    <!-- Cards: surface fill, 20dp corners, no outline (the design's cards are flat). -->
-    <style name="Widget.ReelCounter.Card" parent="Widget.Material3.CardView.Filled">
-        <item name="cardBackgroundColor">@color/surface</item>
-        <item name="cardCornerRadius">20dp</item>
-        <item name="cardElevation">0dp</item>
-        <item name="strokeWidth">0dp</item>
+    <!-- A settings row: icon box, title and subtitle, then a value, switch or chevron. -->
+    <style name="Widget.Rr.Row" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingHorizontal">14dp</item>
+        <item name="android:paddingVertical">11dp</item>
+        <item name="android:background">@drawable/row_ripple</item>
     </style>
 
-    <!-- One of the stats in a row (screen time summary): value over label, equal widths. -->
+    <!-- Bottom bar tab: icon in a 60×28dp pill, label under it. -->
+    <style name="Widget.Rr.NavItem" parent="">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">match_parent</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:gravity">center</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@null</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+
     <style name="Widget.ReelCounter.Stat" parent="">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>
@@ -134,44 +330,29 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:fontFamily">@font/bricolage_grotesque</item>
-        <item name="android:fontVariationSettings">\'wght\' 700</item>
-        <item name="android:textColor">@color/fg</item>
-        <item name="android:textSize">22sp</item>
+        <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 800</item>
+        <item name="android:textColor">?attr/rrText</item>
+        <item name="android:textSize">26sp</item>
         <item name="android:fontFeatureSettings">tnum</item>
     </style>
 
     <style name="TextAppearance.ReelCounter.StatLabel" parent="">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">@color/muted</item>
-        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">?attr/rrText3</item>
+        <item name="android:textSize">12.5sp</item>
     </style>
 
-    <!-- Bottom bar tab: a 28×4dp bar (mood colour when active) above the label. -->
-    <style name="Widget.ReelCounter.NavItem" parent="">
-        <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_weight">1</item>
-        <item name="android:gravity">center_horizontal</item>
-        <item name="android:orientation">vertical</item>
-        <item name="android:minHeight">48dp</item>
-        <item name="android:background">?attr/selectableItemBackgroundBorderless</item>
-        <item name="android:clickable">true</item>
-        <item name="android:focusable">true</item>
+    <!-- Buttons on the always-dark pause and block screens. -->
+    <style name="Widget.Rr.Button.Overlay">
+        <item name="backgroundTint">@color/night_calm</item>
+        <item name="android:textColor">@color/night_on_calm</item>
     </style>
 
-    <style name="Widget.ReelCounter.NavBar" parent="">
-        <item name="android:layout_width">28dp</item>
-        <item name="android:layout_height">4dp</item>
-        <item name="android:layout_marginBottom">5dp</item>
-        <item name="android:background">@drawable/nav_bar</item>
+    <style name="Widget.Rr.Button.OverlayQuiet">
+        <item name="backgroundTint">@color/night_raised</item>
+        <item name="android:textColor">@color/film_fg</item>
+        <item name="strokeColor">@color/night_line</item>
+        <item name="strokeWidth">1dp</item>
     </style>
-
-    <style name="Widget.ReelCounter.NavLabel" parent="">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">@color/faint</item>
-        <item name="android:textSize">12sp</item>
-    </style>
-
 </resources>

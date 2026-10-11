@@ -22,6 +22,11 @@ enum class Platform(
     val shortsIdHints: List<String> = emptyList(),
     val progressBarId: String? = null,
     val signatureRootId: String? = null,
+    /**
+     * The app's bottom tab bar. When it's showing, Reels was opened as the app's own tab rather
+     * than from a chat, so "Allow a reel someone sends you" doesn't apply.
+     */
+    val mainTabBarId: String? = null,
 ) {
     INSTAGRAM(
         "Instagram Reels",
@@ -31,6 +36,9 @@ enum class Platform(
             "com.instagram.android:id/clips_viewer_view_pager",
             "com.instagram.android:id/clips_viewer_pager",
         ),
+        // Seen on the Reels tab on the OnePlus, 11 Oct 2026. A reel opened from a direct message
+        // is expected to open full screen without it; not yet checked on a device.
+        mainTabBarId = "com.instagram.android:id/tab_bar",
     ),
     YOUTUBE(
         "YouTube Shorts",

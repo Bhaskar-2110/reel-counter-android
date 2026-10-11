@@ -84,13 +84,21 @@ class KeepAliveService : Service(), SharedPreferences.OnSharedPreferenceChangeLi
         private const val NOTIFICATION_ID = 1
         private const val WIDGET_REFRESH_MS = 2000L
 
-        /** Starts the service; Android may refuse when the app is in the background, which is fine. */
+        /**
+         * Starts the service unless the user turned the notification off (More → "Reels today"
+         * notification); Android may refuse when the app is in the background, which is fine.
+         */
         fun start(ctx: Context) {
+            if (!CountStore.ongoingNotification(ctx)) return
             try {
                 ContextCompat.startForegroundService(ctx, Intent(ctx, KeepAliveService::class.java))
             } catch (e: Exception) {
                 Log.w(TAG, "Couldn't start keep-alive service", e)
             }
+        }
+
+        fun stop(ctx: Context) {
+            ctx.stopService(Intent(ctx, KeepAliveService::class.java))
         }
     }
 }

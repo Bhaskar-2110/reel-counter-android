@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 11 and older. Counts and settings are backed up; "onboarding done" stays on this
-     phone, so a reinstall or a new phone runs onboarding again (permissions aren't restored). -->
+     phone, and so does the crash log (it names the phone model). A reinstall or a new phone runs onboarding again (permissions aren't restored). -->
 <full-backup-content>
     <exclude domain="sharedpref" path="device_state.xml" />
+    <exclude domain="file" path="last_crash.txt" />
 </full-backup-content>
