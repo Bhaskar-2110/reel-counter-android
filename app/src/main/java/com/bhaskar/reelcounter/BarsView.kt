@@ -25,13 +25,13 @@ class BarsView @JvmOverloads constructor(
     private val dp = resources.displayMetrics.density
     private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = 11 * resources.displayMetrics.scaledDensity
+        textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 11f, resources.displayMetrics)
         textAlign = Paint.Align.CENTER
-        color = context.getColor(R.color.muted)
+        color = context.attrColor(R.attr.rrText3)
     }
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         strokeWidth = 1 * dp
-        color = context.getColor(R.color.line)
+        color = context.attrColor(R.attr.rrLine)
     }
 
     /**
@@ -60,7 +60,7 @@ class BarsView @JvmOverloads constructor(
         values.forEachIndexed { i, v ->
             val cx = slot * i + slot / 2f
             val h = max((bottom - top) * v / scale, if (v > 0f) 2 * dp else 0f)
-            barPaint.color = context.getColor(if (i == highlight) R.color.accent else R.color.bar)
+            barPaint.color = if (i == highlight) context.attrColor(R.attr.rrAccent) else context.attrColor(R.attr.rrRaised)
             val r = min(barW / 2f, 4 * dp)
             canvas.drawRoundRect(cx - barW / 2f, bottom - h, cx + barW / 2f, bottom, r, r, barPaint)
             valueLabels.getOrNull(i)?.takeIf { it.isNotEmpty() }?.let {

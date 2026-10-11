@@ -1,12 +1,8 @@
 package com.bhaskar.reelcounter
 
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.format.DateFormat
-import android.widget.ImageView
-import android.widget.LinearLayout
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
+import android.view.View
 import com.bhaskar.reelcounter.databinding.ActivityUsageBinding
 import java.time.LocalDate
 import java.time.ZoneId
@@ -17,23 +13,31 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * Screen time in detail, from Android's usage data (what Digital Wellbeing is built on): the
- * day's total, unlocks, notifications and first pickup, use by hour, social apps and all apps
- * with opens and longest sessions, and the last 7 days.
+ * Phone screen time (Progress → Phone screen time), from Android's usage data (what Digital
+ * Wellbeing is built on): the day's total, unlocks, notifications and first pickup; social apps
+ * or every app, longest first, with bars; use by hour; and the last 7 days. Social apps open
+ * their app page so you can act on what you see.
  */
-class UsageActivity : AppCompatActivity() {
+class UsageActivity : BaseActivity() {
 
     private lateinit var binding: ActivityUsageBinding
     private val io = Executors.newSingleThreadExecutor()
     private var daysBack = 0
+    private var social = true
+    private var report: DayReport? = null
+    private var firstShow = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityUsageBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.back.setOnClickListener { finish() }
         binding.prevDay.setOnClickListener { daysBack = minOf(daysBack + 1, 6); load() }
         binding.nextDay.setOnClickListener { daysBack = maxOf(daysBack - 1, 0); load() }
+        binding.listSeg.setItems(listOf(getString(R.string.social_apps), getString(R.string.all_apps)), 0) {
+            social = it == 0
+            report?.let { r -> showList(r, animate = true) }
+        }
     }
 
     override fun onResume() {
@@ -54,9 +58,13 @@ class UsageActivity : AppCompatActivity() {
             1 -> getString(R.string.usage_yesterday)
             else -> day.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault()))
         }
-        binding.prevDay.isEnabled = daysBack < 6
-        binding.nextDay.isEnabled = daysBack > 0
+        binding.prevDay.alpha = if (daysBack < 6) 1f else 0.3f
+        binding.nextDay.alpha = if (daysBack > 0) 1f else 0.3f
 
+        if (!UsageRepository.hasAccess(this)) {
+            showNoAccess()
+            return
+        }
         val app = applicationContext
         io.execute {
             val zone = ZoneId.systemDefault()
@@ -64,40 +72,41 @@ class UsageActivity : AppCompatActivity() {
             fun startOf(d: LocalDate) = d.atStartOfDay(zone).toInstant().toEpochMilli()
             fun endOf(d: LocalDate) = if (d == today) now else startOf(d.plusDays(1))
 
-            val report = UsageRepository.dayReport(app, startOf(day), endOf(day))
+            val dayReport = UsageRepository.dayReport(app, startOf(day), endOf(day))
             val week = (6 downTo 0).map { back ->
                 val d = today.minusDays(back.toLong())
                 d to UsageRepository.dayReport(app, startOf(d), endOf(d)).totalMs
             }
-            runOnUiThread { if (!isDestroyed) show(report, week) }
+            runOnUiThread { if (!isDestroyed) show(dayReport, week) }
         }
     }
 
+    private fun showNoAccess() {
+        listOf(binding.totalTime, binding.unlocks, binding.notifications, binding.firstPickup).forEach { it.text = "–" }
+        binding.appList.removeAllViews()
+        Ui.setRow(binding.appList, R.drawable.ic_progress, getString(R.string.usage_access_button), getString(R.string.usage_access_why),
+            listOf(Ui.status(this, getString(R.string.allow), ok = false))) { MainActivity.openUsageAccessSettings(this) }
+        binding.listNote.text = ""
+    }
+
     private fun show(report: DayReport, week: List<Pair<LocalDate, Long>>) {
-        binding.totalTime.text = formatDuration(report.totalMs)
+        this.report = report
+        binding.totalTime.text = Ui.minutes(report.totalMs)
         binding.unlocks.text = report.unlocks.toString()
         binding.notifications.text = if (report.notifications >= 0) report.notifications.toString() else "–"
         binding.firstPickup.text = report.firstPickup?.let { DateFormat.getTimeFormat(this).format(Date(it)) } ?: "–"
+        showList(report, animate = firstShow)
 
         // By hour: bars for each hour, labels every 6 hours.
         val hours = FloatArray(24) { report.hourlyMs[it] / 60_000f }
         val hourLabels = List(24) { h -> if (h % 6 == 0) hourLabel(h) else "" }
-        binding.hourChart.setData(hours, hourLabels, highlight = hours.indices.maxByOrNull { hours[it] } ?: -1)
         val peak = hours.indices.maxByOrNull { hours[it] }
+        binding.hourChart.setData(hours, hourLabels, highlight = peak ?: -1)
         binding.peakHour.text = if (peak != null && hours[peak] > 0f) {
-            getString(R.string.usage_peak, hourLabel(peak), hourLabel((peak + 1) % 24), formatDuration(report.hourlyMs[peak]))
+            getString(R.string.usage_peak, hourLabel(peak), hourLabel((peak + 1) % 24), Ui.minutes(report.hourlyMs[peak]))
         } else {
             getString(R.string.usage_none_day)
         }
-
-        val social = report.social
-        binding.socialTotal.text = getString(
-            R.string.usage_social_total,
-            formatDuration(social.sumOf { it.foregroundMs }),
-            social.sumOf { it.opens },
-        )
-        fillList(binding.socialList, social, getString(R.string.usage_social_none))
-        fillList(binding.allList, report.apps.take(20), getString(R.string.usage_none_day))
 
         // Last 7 days of total screen time, in hours.
         val values = FloatArray(week.size) { week[it].second / 3_600_000f }
@@ -107,56 +116,60 @@ class UsageActivity : AppCompatActivity() {
         val valueLabels = week.map { (_, ms) -> if (ms > 0) formatShort(ms) else "" }
         binding.weekChart.setData(values, labels, valueLabels, highlight = week.lastIndex - daysBack)
         val daysWithData = week.count { it.second > 0 }.coerceAtLeast(1)
-        binding.weekAverage.text = getString(R.string.usage_week_average, formatDuration(week.sumOf { it.second } / daysWithData))
+        binding.weekAverage.text = getString(R.string.usage_week_average, Ui.minutes(week.sumOf { it.second } / daysWithData))
+        if (firstShow) Ui.riseChildren(binding.usageContent)
+        firstShow = false
     }
 
-    private fun fillList(container: LinearLayout, apps: List<AppUsage>, empty: String) {
-        container.removeAllViews()
+    /** Social apps (the ones Rokoreels watches) or every app used, longest first, with bars. */
+    private fun showList(report: DayReport, animate: Boolean) {
+        val list = binding.appList
+        list.removeAllViews()
+        val apps = (if (social) report.social else report.apps).take(25)
         if (apps.isEmpty()) {
-            val text = layoutInflater.inflate(R.layout.row_usage, container, false)
-            text.findViewById<TextView>(R.id.usageName).text = empty
-            text.findViewById<TextView>(R.id.usageOpens).text = ""
-            text.findViewById<TextView>(R.id.usageTime).text = ""
-            container.addView(text)
-            return
+            Ui.setRow(list, null, getString(if (social) R.string.usage_social_none else R.string.usage_none_day))
         }
-        val timeFormat = DateFormat.getTimeFormat(this)
-        apps.forEach { usage ->
-            val row = layoutInflater.inflate(R.layout.row_usage, container, false)
-            row.findViewById<TextView>(R.id.usageName).text = usage.label
-            row.findViewById<TextView>(R.id.usageTime).text = formatDuration(usage.foregroundMs)
-            val details = buildList {
-                add(resources.getQuantityString(R.plurals.usage_opens, usage.opens, usage.opens))
-                if (usage.notifications > 0) {
-                    add(resources.getQuantityString(R.plurals.usage_notifications, usage.notifications, usage.notifications))
-                }
-                if (usage.longestMs >= 60_000) add(getString(R.string.usage_longest, formatDuration(usage.longestMs)))
-                if (usage.lastUsed > 0) add(getString(R.string.usage_last, timeFormat.format(Date(usage.lastUsed))))
+        val max = apps.maxOfOrNull { it.foregroundMs }?.coerceAtLeast(1L) ?: 1L
+        for (usage in apps) {
+            val platform = Platform.forPackage(usage.packageName)
+            val row = layoutInflater.inflate(R.layout.row_app, list, false)
+            row.findViewById<android.widget.ImageView>(R.id.appIcon).setImageDrawable(
+                try {
+                    packageManager.getApplicationIcon(usage.packageName)
+                } catch (e: Exception) {
+                    null
+                },
+            )
+            row.findViewById<android.widget.TextView>(R.id.appName).text = usage.label
+            row.findViewById<android.widget.TextView>(R.id.appSub).apply {
+                text = resources.getQuantityString(R.plurals.usage_opens, usage.opens, usage.opens)
+                visibility = View.VISIBLE
             }
-            row.findViewById<TextView>(R.id.usageOpens).text = details.joinToString(" · ")
-            val icon = try {
-                packageManager.getApplicationIcon(usage.packageName)
-            } catch (e: PackageManager.NameNotFoundException) {
-                null
+            row.findViewById<android.widget.TextView>(R.id.appTime).text = Ui.minutes(usage.foregroundMs)
+            row.findViewById<View>(R.id.appCount).visibility = View.GONE
+            row.findViewById<View>(R.id.appChevron).visibility = if (platform != null) View.VISIBLE else View.GONE
+            val meter = row.findViewById<View>(R.id.appMeter)
+            meter.visibility = View.VISIBLE
+            val fill = row.findViewById<View>(R.id.appMeterFill)
+            fill.background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = Ui.dp(this@UsageActivity, 2f).toFloat()
+                setColor(if (platform != null) moodColor(1) else attrColor(R.attr.rrText3))
             }
-            row.findViewById<ImageView>(R.id.usageIcon).setImageDrawable(icon)
-            container.addView(row)
+            meter.post {
+                fill.layoutParams.width = (meter.width * usage.foregroundMs / max.toFloat()).toInt()
+                fill.requestLayout()
+            }
+            if (platform != null) row.setOnClickListener { push(AppDetailActivity.intent(this, platform)) } else row.isClickable = false
+            list.addView(row)
         }
+        binding.listNote.setText(if (social) R.string.usage_social_note else R.string.usage_all_note)
+        if (animate) Ui.riseChildren(list)
     }
 
     /** "12 AM", "6 PM" or "18:00", following the phone's 12/24-hour setting. */
     private fun hourLabel(hour: Int): String =
         if (DateFormat.is24HourFormat(this)) "%02d:00".format(hour)
         else "${if (hour % 12 == 0) 12 else hour % 12} ${if (hour < 12) "AM" else "PM"}"
-
-    private fun formatDuration(ms: Long): String {
-        val minutes = ms / 60_000
-        return when {
-            minutes < 1 -> getString(R.string.duration_under_minute)
-            minutes < 60 -> getString(R.string.duration_minutes, minutes.toInt())
-            else -> getString(R.string.duration_hours, (minutes / 60).toInt(), (minutes % 60).toInt())
-        }
-    }
 
     /** Compact form for chart labels: "45m", "2h", "2.5h". */
     private fun formatShort(ms: Long): String {
@@ -167,4 +180,5 @@ class UsageActivity : AppCompatActivity() {
             else -> "%.1fh".format(minutes / 60f)
         }
     }
+
 }

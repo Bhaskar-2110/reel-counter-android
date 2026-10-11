@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 12 and newer. Counts and settings are backed up and moved to new phones;
-     "onboarding done" stays on this phone, so onboarding runs again to ask for permissions. -->
+     "onboarding done" and the crash log stay on this phone, so onboarding runs again to ask for permissions. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="device_state.xml" />
+        <exclude domain="file" path="last_crash.txt" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="device_state.xml" />
+        <exclude domain="file" path="last_crash.txt" />
     </device-transfer>
 </data-extraction-rules>

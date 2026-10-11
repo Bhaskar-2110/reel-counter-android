@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Onboarding (design_docs/reel-counter-onboarding.html): progress dots, Iris, a big headline,
-     a line of text, a step-specific area, and a primary and a ghost button. -->
-<!-- The outer frame keeps clear of the status and navigation bars (fitsSystemWindows replaces a
-     view's own padding, so the screen's margins live on the inner layout). -->
+<!-- First open (design/Rokoreels App Flow.html, Onboarding): a back button, a six-step bar and
+     "n/6" on top, one job per screen in the middle, and the action at the bottom. -->
+<!-- fitsSystemWindows replaces a view's own padding, so it sits on the outer frame and the
+     screen's margins on the inner layout (on the phone, margins were lost otherwise). -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
     android:fitsSystemWindows="true">
 
 <LinearLayout
@@ -14,62 +14,63 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:paddingHorizontal="22dp"
-    android:paddingTop="20dp"
-    android:paddingBottom="18dp">
+    android:paddingTop="6dp"
+    android:paddingBottom="22dp">
 
     <LinearLayout
-        android:id="@+id/dots"
-        android:layout_width="wrap_content"
-        android:layout_height="6dp"
-        android:layout_gravity="center_horizontal"
-        android:orientation="horizontal" />
+        android:id="@+id/obTop"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/obBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/circle_button_bg"
+            android:contentDescription="@string/back"
+            android:foreground="?attr/selectableItemBackgroundBorderless"
+            android:stateListAnimator="@animator/press_scale">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_back"
+                app:tint="?attr/rrText2" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/progress"
+            android:layout_width="0dp"
+            android:layout_height="4dp"
+            android:layout_marginHorizontal="10dp"
+            android:layout_weight="1"
+            android:orientation="horizontal" />
+
+        <TextView
+            android:id="@+id/stepText"
+            style="@style/Rr.Text.Muted"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:gravity="end" />
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <LinearLayout
             android:id="@+id/body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
             android:orientation="vertical"
-            android:paddingTop="18dp">
-
-            <View
-                android:id="@+id/topSpace"
-                android:layout_width="match_parent"
-                android:layout_height="0dp" />
-
-            <com.bhaskar.reelcounter.EyesView
-                android:id="@+id/eyes"
-                android:layout_width="150dp"
-                android:layout_height="150dp"
-                android:layout_gravity="center_horizontal" />
-
-            <TextView
-                android:id="@+id/title"
-                style="@style/TextAppearance.ReelCounter.Big"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" />
-
-            <TextView
-                android:id="@+id/text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="@color/muted"
-                android:textSize="14sp" />
-
-            <LinearLayout
-                android:id="@+id/extra"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-        </LinearLayout>
+            android:paddingTop="16dp" />
     </ScrollView>
 
     <com.google.android.material.button.MaterialButton
@@ -80,8 +81,9 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/ghost"
-        style="@style/Widget.ReelCounter.Button.Ghost"
+        style="@style/Widget.Rr.Button.Ghost"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
 </LinearLayout>
 </FrameLayout>

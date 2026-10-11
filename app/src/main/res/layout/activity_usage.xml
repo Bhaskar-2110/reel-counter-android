@@ -1,266 +1,230 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Phone screen time (design "Screen time", Progress → Phone screen time): four numbers, then
+     social apps or every app, then use by hour and the last 7 days. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg"
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="@color/bg"
-        app:navigationIcon="?attr/homeAsUpIndicator"
-        app:navigationIconTint="@color/fg"
-        app:title="@string/usage_screen_title"
-        app:titleTextColor="@color/fg" />
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="8dp">
+
+        <FrameLayout
+            android:id="@+id/back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/circle_button_bg"
+            android:contentDescription="@string/back"
+            android:foreground="?attr/selectableItemBackgroundBorderless"
+            android:stateListAnimator="@animator/press_scale">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_back"
+                app:tint="?attr/rrText2" />
+        </FrameLayout>
+
+        <TextView
+            style="@style/Rr.Text.ScreenTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:text="@string/usage_screen_title" />
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:scrollbars="none">
 
         <LinearLayout
+            android:id="@+id/usageContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingHorizontal="16dp"
             android:paddingBottom="24dp">
 
-            <!-- Day picker -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <com.google.android.material.button.MaterialButton
+                <TextView
                     android:id="@+id/prevDay"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/Rr.Text.Link"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:contentDescription="@string/usage_prev_day"
+                    android:paddingHorizontal="12dp"
                     android:text="‹"
                     android:textSize="22sp" />
 
                 <TextView
                     android:id="@+id/dayLabel"
+                    style="@style/Rr.Text.CardTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:gravity="center"
-                    android:textColor="@color/fg"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:gravity="center" />
 
-                <com.google.android.material.button.MaterialButton
+                <TextView
                     android:id="@+id/nextDay"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/Rr.Text.Link"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:contentDescription="@string/usage_next_day"
+                    android:paddingHorizontal="12dp"
                     android:text="›"
                     android:textSize="22sp" />
             </LinearLayout>
 
-            <!-- Summary -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.ReelCounter.Card"
+            <!-- Total, unlocks, notifications, first pickup -->
+            <LinearLayout
+                android:id="@+id/summary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp">
+                android:layout_marginTop="6dp"
+                android:background="@drawable/card_bg"
+                android:orientation="vertical"
+                android:padding="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:orientation="horizontal">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="@string/usage_total_label"
-                        android:textAllCaps="true"
-                        android:textColor="@color/muted"
-                        android:textSize="11sp" />
+                    <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                        <TextView android:id="@+id/totalTime" style="@style/TextAppearance.ReelCounter.StatValue" />
+                        <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/total_today" />
+                    </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/totalTime"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFeatureSettings="tnum"
-                        android:textColor="@color/fg"
-                        android:textSize="34sp"
-                        android:textStyle="bold" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:orientation="horizontal">
-
-                        <LinearLayout style="@style/Widget.ReelCounter.Stat">
-                            <TextView android:id="@+id/unlocks" style="@style/TextAppearance.ReelCounter.StatValue" />
-                            <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_unlocks" />
-                        </LinearLayout>
-
-                        <LinearLayout style="@style/Widget.ReelCounter.Stat">
-                            <TextView android:id="@+id/notifications" style="@style/TextAppearance.ReelCounter.StatValue" />
-                            <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_notifications" />
-                        </LinearLayout>
-
-                        <LinearLayout style="@style/Widget.ReelCounter.Stat">
-                            <TextView android:id="@+id/firstPickup" style="@style/TextAppearance.ReelCounter.StatValue" />
-                            <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_first_pickup" />
-                        </LinearLayout>
+                    <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                        <TextView android:id="@+id/unlocks" style="@style/TextAppearance.ReelCounter.StatValue" />
+                        <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_unlocks_lower" />
                     </LinearLayout>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- By hour -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.ReelCounter.Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
 
-                    <TextView
-                        style="@style/TextAppearance.ReelCounter.Section"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/usage_by_hour" />
+                    <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                        <TextView android:id="@+id/notifications" style="@style/TextAppearance.ReelCounter.StatValue" />
+                        <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_notifications_lower" />
+                    </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/peakHour"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:textColor="@color/muted"
-                        android:textSize="13sp" />
-
-                    <com.bhaskar.reelcounter.BarsView
-                        android:id="@+id/hourChart"
-                        android:layout_width="match_parent"
-                        android:layout_height="120dp"
-                        android:layout_marginTop="8dp" />
+                    <LinearLayout style="@style/Widget.ReelCounter.Stat">
+                        <TextView android:id="@+id/firstPickup" style="@style/TextAppearance.ReelCounter.StatValue" />
+                        <TextView style="@style/TextAppearance.ReelCounter.StatLabel" android:text="@string/usage_first_pickup_lower" />
+                    </LinearLayout>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
-            <!-- Social apps -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.ReelCounter.Card"
+            <com.bhaskar.reelcounter.SegmentedControl
+                android:id="@+id/listSeg"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
+                android:layout_marginTop="12dp" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        style="@style/TextAppearance.ReelCounter.Section"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/usage_social" />
-
-                    <TextView
-                        android:id="@+id/socialTotal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:textColor="@color/muted"
-                        android:textSize="13sp" />
-
-                    <LinearLayout
-                        android:id="@+id/socialList"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- All apps -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.ReelCounter.Card"
+            <LinearLayout
+                android:id="@+id/appList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        style="@style/TextAppearance.ReelCounter.Section"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/usage_all_apps" />
-
-                    <LinearLayout
-                        android:id="@+id/allList"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Last 7 days -->
-            <com.google.android.material.card.MaterialCardView
-                style="@style/Widget.ReelCounter.Card"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        style="@style/TextAppearance.ReelCounter.Section"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/usage_week_title" />
-
-                    <TextView
-                        android:id="@+id/weekAverage"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:textColor="@color/muted"
-                        android:textSize="13sp" />
-
-                    <com.bhaskar.reelcounter.BarsView
-                        android:id="@+id/weekChart"
-                        android:layout_width="match_parent"
-                        android:layout_height="140dp"
-                        android:layout_marginTop="8dp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                android:layout_marginTop="8dp"
+                android:background="@drawable/card_bg"
+                android:divider="@drawable/list_divider"
+                android:orientation="vertical"
+                android:showDividers="middle" />
 
             <TextView
+                android:id="@+id/listNote"
+                style="@style/Rr.Text.Muted"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="8dp"
+                android:paddingHorizontal="4dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/card_bg"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    style="@style/Rr.Text.CardTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/usage_by_hour" />
+
+                <TextView
+                    android:id="@+id/peakHour"
+                    style="@style/Rr.Text.Muted"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp" />
+
+                <com.bhaskar.reelcounter.BarsView
+                    android:id="@+id/hourChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/card_bg"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    style="@style/Rr.Text.CardTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/usage_week_title" />
+
+                <TextView
+                    android:id="@+id/weekAverage"
+                    style="@style/Rr.Text.Muted"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp" />
+
+                <com.bhaskar.reelcounter.BarsView
+                    android:id="@+id/weekChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="140dp"
+                    android:layout_marginTop="8dp" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/Rr.Text.Muted"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:paddingHorizontal="4dp"
                 android:text="@string/usage_footer"
-                android:textColor="@color/muted"
-                android:textSize="12sp" />
+                android:textSize="11.5sp" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

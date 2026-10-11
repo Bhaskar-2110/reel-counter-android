@@ -1,171 +1,264 @@
 package com.bhaskar.reelcounter
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Bundle
 import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.isVisible
-import com.bhaskar.reelcounter.databinding.ActivityAppDetailBinding
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * One app's page (idea from Regain's per-app page): today's reels and minutes, the last 7 days,
- * its own limits with a suggestion from real use, and its blocking rules ("Block reels always",
- * "Allow a reel someone sends you", "Count this app"). Opened by tapping an app on Today.
+ * Everything about one app on one page (design "App page", like Digital Wellbeing's app page):
+ * today's reels and minutes against its limits, then every rule for the app, strongest first:
+ * block, reel limit, daily timer, focus hours. Switches flip in place; limits open a sheet.
  */
-class AppDetailActivity : AppCompatActivity() {
+class AppDetailActivity : PageActivity() {
 
-    private lateinit var binding: ActivityAppDetailBinding
     private lateinit var platform: Platform
-    private val dp by lazy { resources.displayMetrics.density }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        val requested = intent.getStringExtra(EXTRA_PLATFORM)?.let { name -> Platform.entries.firstOrNull { it.name == name } }
+        platform = requested ?: Platform.INSTAGRAM
         super.onCreate(savedInstanceState)
-        platform = intent.getStringExtra(EXTRA_PLATFORM)?.let { name -> Platform.entries.firstOrNull { it.name == name } }
-            ?: run { finish(); return }
-        binding = ActivityAppDetailBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        binding.back.setOnClickListener { finish() }
-        binding.appName.text = platform.shortName
-        binding.appIcon.setImageDrawable(icon())
-
-        binding.blockAlways.text = getString(R.string.detail_block_always, platform.shortName)
-        binding.blockAlwaysHint.text = getString(R.string.detail_block_always_hint)
-        binding.blockAlways.isChecked = Blocking.blockAlways(this, platform)
-        binding.blockAlways.setOnCheckedChangeListener { _, on -> Blocking.setBlockAlways(this, platform, on) }
-        binding.allowFirst.isChecked = Blocking.allowFirst(this, platform)
-        binding.allowFirst.setOnCheckedChangeListener { _, on -> Blocking.setAllowFirst(this, platform, on) }
-        // Apps that are nothing but short videos (TikTok…) have no "first reel" to allow.
-        binding.allowFirst.isVisible = !platform.isWholeApp
-        binding.tracked.isChecked = CountStore.isTracked(this, platform)
-        binding.tracked.setOnCheckedChangeListener { _, on -> CountStore.setTracked(this, platform, on) }
+        if (requested == null) finish()
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (::binding.isInitialized) render()
-    }
+    override fun title(): CharSequence = platform.shortName
 
-    private fun render() {
+    override fun build() {
         val today = LocalDate.now()
         val reels = CountStore.appCount(this, today, platform)
         val timeMs = CountStore.appTime(this, today, platform)
-        binding.todayReels.text = resources.getQuantityString(R.plurals.reels_today_short, reels, reels)
-        binding.todaySub.text = getString(R.string.detail_today_sub, duration(timeMs), platform.shortName)
+        val blocked = Blocking.blockAlways(this, platform)
+        val reelLimit = CountStore.appLimit(this, platform)
+        val timer = CountStore.appTimeLimitMinutes(this, platform)
+        val tags = ruleTags(this, platform)
 
-        // Last 7 days, today last.
+        // Header: icon, name, rules on
+        content.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            val icon = Ui.appIcon(context, platform)
+            if (icon != null) {
+                addView(ImageView(context).apply { setImageDrawable(icon) },
+                    LinearLayout.LayoutParams(Ui.dp(context, 52f), Ui.dp(context, 52f)))
+            }
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(if (icon != null) Ui.dp(context, 14f) else Ui.dp(context, 4f), 0, 0, 0)
+                addView(Ui.text(context, R.style.Rr_Text_ScreenTitle, platform.shortName).apply { fontVariationSettings = "'wght' 800" })
+                addView(Ui.text(context, R.style.Rr_Text_Muted,
+                    if (tags.isEmpty()) getString(R.string.no_rules_yet) else resources.getQuantityString(R.plurals.rules_on, tags.size, tags.size)))
+            })
+        }, Ui.gap(this, 4f))
+
+        // Two meters: reels against the reel limit, minutes against the timer.
+        val stats = card(12f)
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        grid.addView(meterCell(
+            getString(R.string.reels_today_label_cap),
+            reels.toString(),
+            if (!blocked && reelLimit > 0) " / $reelLimit" else "",
+            when {
+                blocked -> getString(R.string.blocked_all_day)
+                reelLimit > 0 -> null
+                else -> getString(R.string.no_reel_limit)
+            },
+            if (reelLimit > 0) reels / reelLimit.toFloat() else 0f,
+            MoodColors.forProgress(this, CountStore.limitProgress(this, platform)),
+        ), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = Ui.dp(this@AppDetailActivity, 14f) })
+        grid.addView(meterCell(
+            getString(R.string.time_in_app),
+            Ui.minutes(timeMs),
+            if (timer > 0) " / ${timer}m" else "",
+            if (timer > 0) null else getString(R.string.no_timer),
+            if (timer > 0) timeMs / (timer * 60_000f) else 0f,
+            attrColor(R.attr.rrAccent),
+        ), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        stats.addView(grid)
+
+        // Rules, strongest first
+        section(getString(R.string.rules_for, platform.shortName))
+        val rules = list()
+        val whole = platform.isWholeApp
+        Ui.switchRow(
+            rules, R.drawable.ic_block,
+            if (whole) getString(R.string.block_whole_app) else getString(R.string.block_reels_of, platform.reelWord(this)),
+            if (whole) getString(R.string.block_whole_app_sub) else getString(R.string.block_reels_sub, platform.reelWord(this)),
+            blocked,
+        ) { Blocking.setBlockAlways(this, platform, it) }
+        val limitRow = Ui.setRow(
+            rules, R.drawable.ic_limit, getString(R.string.reel_limit),
+            if (blocked) getString(R.string.reel_limit_not_needed) else getString(R.string.reel_limit_sub),
+            listOf(Ui.value(this, if (reelLimit > 0) resources.getQuantityString(R.plurals.n_reels, reelLimit, reelLimit) else getString(R.string.none)), Ui.chevron(this)),
+        ) { reelLimitSheet(this, platform) }
+        if (blocked) {
+            limitRow.alpha = 0.45f
+            limitRow.isEnabled = false
+        }
+        Ui.setRow(
+            rules, R.drawable.ic_timer, getString(R.string.daily_timer), getString(R.string.daily_timer_sub),
+            listOf(Ui.value(this, if (timer > 0) getString(R.string.n_min, timer) else getString(R.string.off)), Ui.chevron(this)),
+        ) { timerSheet(this, platform) }
+        val focusNames = Blocking.schedules(this).filter { it.enabled && it.locks(platform) }.map { it.name }
+        Ui.setRow(
+            rules, R.drawable.ic_focus, getString(R.string.focus_hours),
+            if (focusNames.isEmpty()) getString(R.string.not_in_schedule) else getString(R.string.locked_during, Ui.joinNames(this, focusNames)),
+            listOf(Ui.chevron(this)),
+        ) { push(Intent(this, FocusActivity::class.java)) }
+
+        section(R.string.more)
+        val more = list()
+        if (!whole) {
+            Ui.switchRow(more, R.drawable.ic_user, getString(R.string.detail_allow_first), getString(R.string.detail_allow_first_hint),
+                Blocking.allowFirst(this, platform)) { Blocking.setAllowFirst(this, platform, it) }
+        }
+        Ui.switchRow(more, R.drawable.ic_eye, getString(R.string.detail_count_app), getString(R.string.detail_count_app_hint),
+            CountStore.isTracked(this, platform)) { CountStore.setTracked(this, platform, it) }
+
+        // This week
+        val week = card(12f)
+        week.addView(Ui.text(this, R.style.Rr_Text_CardTitle, getString(R.string.this_week)))
         val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
         val counts = days.map { CountStore.appCount(this, it, platform) }
-        binding.weekBars.setData(
-            counts.map { it.toFloat() }.toFloatArray(),
-            days.mapIndexed { i, d ->
-                if (i == days.lastIndex) getString(R.string.today) else d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
-            },
-            counts.map { it.toString() },
-            highlight = days.lastIndex,
-        )
-        val firstDay = CountStore.firstDay(this)
-        val counted = days.filter { !it.isBefore(firstDay) }
-        val n = counted.size.coerceAtLeast(1)
-        binding.weekSummary.text = getString(R.string.detail_week_summary, counts.sum() / n, counts.sum())
+        val mood = MoodColors.forProgress(this, CountStore.limitProgress(this, platform))
+        val sky = (moodColor(1) and 0x00FFFFFF) or (0xBF shl 24)
+        week.addView(WeekBarsView(this).apply {
+            setData(
+                counts.toIntArray(),
+                days.mapIndexed { i, d -> if (i == 6) getString(R.string.today) else d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) },
+                IntArray(7) { if (it == 6) mood else sky },
+                reelLimit,
+            )
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 100f)).apply { topMargin = Ui.dp(this@AppDetailActivity, 10f) })
+        val opens = CountStore.appOpens(this, today, platform)
+        val counted = Stats.counted(this, days).size.coerceAtLeast(1)
+        week.addView(Ui.text(this, R.style.Rr_Text_Muted,
+            getString(R.string.app_week_line, resources.getQuantityString(R.plurals.opens_today, opens, opens), counts.sum() / counted)), Ui.gap(this, 8f))
 
-        renderLimits()
-        renderSuggestion(days.dropLast(1).filter { !it.isBefore(firstDay) }, today)
+        suggestion(days.dropLast(1).filter { !it.isBefore(CountStore.firstDay(this)) })
     }
 
-    private fun renderLimits() {
-        stepperRow(
-            binding.reelLimitRow, getString(R.string.detail_reels_a_day),
-            CountStore.appLimit(this, platform), step = 5, max = 500,
-        ) { CountStore.setAppLimit(this, platform, it); render() }
-        stepperRow(
-            binding.timeLimitRow, getString(R.string.detail_minutes_a_day),
-            CountStore.appTimeLimitMinutes(this, platform), step = 5, max = 600,
-        ) { CountStore.setAppTimeLimitMinutes(this, platform, it); render() }
-    }
+    /** One of the two meters at the top: label, big number, and a bar or a note. */
+    private fun meterCell(label: String, big: String, small: String, note: String?, share: Float, color: Int) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Ui.text(context, R.style.Rr_Text_Muted, label))
+            addView(TextView(context, null, 0, R.style.Rr_Text_Big).apply {
+                textSize = 28f
+                text = android.text.SpannableStringBuilder(big).apply {
+                    val s = length
+                    append(small)
+                    setSpan(android.text.style.AbsoluteSizeSpan(14, true), s, length, 0)
+                    setSpan(android.text.style.ForegroundColorSpan(attrColor(R.attr.rrText3)), s, length, 0)
+                }
+            }, Ui.gap(context, 6f))
+            if (note != null) {
+                addView(Ui.text(context, R.style.Rr_Text_Sub, note), Ui.gap(context, 6f))
+            } else {
+                // Turns coral when close to the limit.
+                addView(Ui.meter(context, share, if (share >= 0.85f) moodColor(3) else color), Ui.gap(context, 8f).apply {
+                    height = Ui.dp(context, 6f)
+                })
+            }
+        }
 
     /**
-     * Suggested limits from real use (idea from Regain): about three quarters of the average on
-     * past days (today isn't over yet), rounded to 5.
+     * Suggested limits from real use: about three quarters of the average on past days (today
+     * isn't over yet), rounded to 5.
      */
-    private fun renderSuggestion(pastDays: List<LocalDate>, today: LocalDate) {
-        val reelsAvg = pastDays.map { CountStore.appCount(this, it, platform) }.average().takeIf { pastDays.isNotEmpty() } ?: 0.0
-        val minutesAvg = pastDays.map { CountStore.appTime(this, it, platform) / 60_000.0 }.average().takeIf { pastDays.isNotEmpty() } ?: 0.0
-        if (reelsAvg < 1 && minutesAvg < 1) {
-            binding.suggestion.text = getString(R.string.detail_suggestion_none, platform.shortName)
-            binding.useSuggestion.isVisible = false
-            return
-        }
+    private fun suggestion(pastDays: List<LocalDate>) {
+        if (pastDays.size < 2) return
+        val reelsAvg = pastDays.map { CountStore.appCount(this, it, platform) }.average()
+        val minutesAvg = pastDays.map { CountStore.appTime(this, it, platform) / 60_000.0 }.average()
+        if (reelsAvg < 4 && minutesAvg < 5) return
         val reels = round5(reelsAvg * 0.75)
         val minutes = round5(minutesAvg * 0.75)
-        binding.suggestion.text = getString(R.string.detail_suggestion, reelsAvg.roundToInt(), minutesAvg.roundToInt(), reels, minutes)
-        binding.useSuggestion.isVisible = true
-        binding.useSuggestion.setOnClickListener {
+        val c = card(10f)
+        c.addView(Ui.text(this, R.style.Rr_Text_CardTitle, getString(R.string.suggested_limits)))
+        c.addView(Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.detail_suggestion, reelsAvg.roundToInt(), minutesAvg.roundToInt(), reels, minutes)), Ui.gap(this, 6f))
+        c.addView(Ui.link(this, getString(R.string.detail_use_suggestion)) {
             CountStore.setAppLimit(this, platform, reels)
             CountStore.setAppTimeLimitMinutes(this, platform, minutes)
-            render()
-        }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(this@AppDetailActivity, 4f) })
     }
 
     private fun round5(v: Double) = ((v / 5).roundToInt() * 5).coerceAtLeast(5)
 
-    /** "Label   [−]  20  [+]"; 0 shows "No limit". */
-    private fun stepperRow(row: LinearLayout, label: String, value: Int, step: Int, max: Int, onChange: (Int) -> Unit) {
-        row.removeAllViews()
-        row.gravity = Gravity.CENTER_VERTICAL
-        row.addView(TextView(this).apply {
-            text = label
-            setTextColor(getColor(R.color.fg))
-            textSize = 15f
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        fun button(sign: String, delta: Int) = TextView(this).apply {
-            text = sign
-            gravity = Gravity.CENTER
-            textSize = 20f
-            setTextColor(getColor(R.color.fg))
-            background = getDrawable(R.drawable.stepper_button)
-            contentDescription = "$label $sign"
-            setOnClickListener { onChange((value + delta).coerceIn(0, max)) }
-        }
-        row.addView(button("−", -step), LinearLayout.LayoutParams((44 * dp).toInt(), (44 * dp).toInt()))
-        row.addView(TextView(this).apply {
-            text = if (value <= 0) getString(R.string.detail_no_limit) else value.toString()
-            gravity = Gravity.CENTER
-            setTextColor(getColor(if (value <= 0) R.color.muted else R.color.fg))
-            textSize = if (value <= 0) 13f else 18f
-            typeface = resources.getFont(R.font.bricolage_grotesque)
-        }, LinearLayout.LayoutParams((84 * dp).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT))
-        row.addView(button("+", step), LinearLayout.LayoutParams((44 * dp).toInt(), (44 * dp).toInt()))
-    }
-
-    private fun icon() = platform.packages.firstNotNullOfOrNull { pkg ->
-        try {
-            packageManager.getApplicationIcon(pkg)
-        } catch (e: PackageManager.NameNotFoundException) {
-            null
-        }
-    }
-
-    private fun duration(ms: Long): String {
-        val minutes = ms / 60_000
-        return when {
-            minutes < 1 -> getString(R.string.duration_under_minute)
-            minutes < 60 -> getString(R.string.duration_minutes, minutes.toInt())
-            else -> getString(R.string.duration_hours, (minutes / 60).toInt(), (minutes % 60).toInt())
-        }
-    }
-
     companion object {
         private const val EXTRA_PLATFORM = "platform"
 
-        fun open(ctx: Context, platform: Platform) =
-            ctx.startActivity(Intent(ctx, AppDetailActivity::class.java).putExtra(EXTRA_PLATFORM, platform.name))
+        fun intent(ctx: Context, platform: Platform) =
+            Intent(ctx, AppDetailActivity::class.java).putExtra(EXTRA_PLATFORM, platform.name)
+
+        /** Tags for an app's rules, like "Reels blocked", "15 reels", "30 min". */
+        fun ruleTags(ctx: Context, platform: Platform): List<String> {
+            val tags = ArrayList<String>()
+            if (Blocking.blockAlways(ctx, platform)) {
+                tags += ctx.getString(if (platform.isWholeApp) R.string.tag_app_blocked else R.string.tag_reels_blocked, platform.reelWord(ctx))
+            } else {
+                CountStore.appLimit(ctx, platform).takeIf { it > 0 }?.let { tags += ctx.resources.getQuantityString(R.plurals.n_reels, it, it) }
+            }
+            CountStore.appTimeLimitMinutes(ctx, platform).takeIf { it > 0 }?.let { tags += ctx.getString(R.string.n_min, it) }
+            return tags
+        }
+
+        /** "Limit for Instagram": quick picks, None to 60, or a typed number. */
+        fun reelLimitSheet(activity: Activity, platform: Platform) {
+            val ctx = activity
+            val current = CountStore.appLimit(ctx, platform)
+            val picks = listOf(0, 5, 10, 15, 20, 30, 45, 60)
+            lateinit var sheet: com.google.android.material.bottomsheet.BottomSheetDialog
+            sheet = Ui.sheet(activity, ctx.getString(R.string.limit_for, platform.shortName)) { box ->
+                val count = CountStore.appCount(ctx, LocalDate.now(), platform)
+                box.addView(Ui.text(ctx, R.style.Rr_Text_Muted,
+                    ctx.getString(R.string.limit_sheet_sub, count, platform.reelWord(ctx))), Ui.gap(ctx, 6f))
+                box.addView(Ui.opts(ctx, picks, current, 4,
+                    { if (it == 0) ctx.getString(R.string.none) else it.toString() }) {
+                    CountStore.setAppLimit(ctx, platform, it)
+                }, Ui.gap(ctx, 14f))
+                val own = if (current > 0 && current !in picks) ctx.getString(R.string.limit_own_n, current) else ctx.getString(R.string.limit_type)
+                box.addView(Ui.link(ctx, own) {
+                    Ui.askNumber(ctx, ctx.getString(R.string.limit_for, platform.shortName), CountStore.appLimit(ctx, platform), 1, 500) {
+                        CountStore.setAppLimit(ctx, platform, it)
+                        sheet.dismiss()
+                    }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = Ui.dp(ctx, 12f)
+                    gravity = Gravity.CENTER_HORIZONTAL
+                })
+            }
+        }
+
+        /** "Daily timer for Instagram": quick picks, Off to 3 hours. */
+        fun timerSheet(activity: Activity, platform: Platform) {
+            val ctx = activity
+            val current = CountStore.appTimeLimitMinutes(ctx, platform)
+            Ui.sheet(activity, ctx.getString(R.string.timer_for, platform.shortName)) { box ->
+                val used = (CountStore.appTime(ctx, LocalDate.now(), platform) / 60_000).toInt()
+                box.addView(Ui.text(ctx, R.style.Rr_Text_Muted,
+                    ctx.getString(R.string.timer_sheet_sub, used, platform.shortName)), Ui.gap(ctx, 6f))
+                box.addView(Ui.opts(ctx, listOf(0, 15, 30, 45, 60, 90, 120, 180), current, 4,
+                    { if (it == 0) ctx.getString(R.string.off) else if (it < 60) "${it}m" else if (it % 60 == 0) "${it / 60}h" else "%.1fh".format(it / 60f) }) {
+                    CountStore.setAppTimeLimitMinutes(ctx, platform, it)
+                }, Ui.gap(ctx, 14f))
+            }
+        }
     }
 }
+
+/** "Reels", "Shorts", "Spotlight", or "the whole app" for apps that are only short videos. */
+fun Platform.reelWord(ctx: Context): String = ctx.getString(
+    when (this) {
+        Platform.INSTAGRAM -> R.string.word_reels
+        Platform.YOUTUBE -> R.string.word_shorts
+        Platform.SNAPCHAT -> R.string.word_spotlight
+        else -> R.string.word_whole_app
+    },
+)
