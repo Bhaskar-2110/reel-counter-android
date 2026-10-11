@@ -92,7 +92,7 @@
             </LinearLayout>
 
             <!-- Iris and the ring: the biggest thing, centred; shrinks on short screens. -->
-            <com.bhaskar.reelcounter.SquareFrame
+            <com.reelcounter.SquareFrame
                 android:id="@+id/hero"
                 android:clipChildren="false"
                 android:clipToPadding="false"
@@ -101,18 +101,18 @@
                 android:layout_weight="1"
                 android:minHeight="150dp">
 
-                <com.bhaskar.reelcounter.RingView
+                <com.reelcounter.RingView
                     android:id="@+id/ring"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
 
-                <com.bhaskar.reelcounter.EyesView
+                <com.reelcounter.EyesView
                     android:id="@+id/mainEyes"
                     android:tag="inner"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:contentDescription="@string/iris_description" />
-            </com.bhaskar.reelcounter.SquareFrame>
+            </com.reelcounter.SquareFrame>
 
             <LinearLayout
                 android:id="@+id/stats"
@@ -253,7 +253,7 @@
                     android:paddingBottom="12dp"
                     android:text="@string/tab_progress" />
 
-                <com.bhaskar.reelcounter.SegmentedControl
+                <com.reelcounter.SegmentedControl
                     android:id="@+id/progressSeg"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content" />

@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.bhaskar.reelcounter"
+    namespace = "com.reelcounter"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.bhaskar.reelcounter"
+        applicationId = "com.reelcounter"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

@@ -16,7 +16,7 @@
     android:paddingTop="56dp"
     android:paddingBottom="26dp">
 
-    <com.bhaskar.reelcounter.EyesView
+    <com.reelcounter.EyesView
         android:id="@+id/blockEyes"
         android:layout_width="200dp"
         android:layout_height="200dp"

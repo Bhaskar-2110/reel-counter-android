@@ -112,15 +112,15 @@ ignored because those views don't fill the screen.
 
 | File | Role |
 |---|---|
-| [`ReelCounterService.kt`](app/src/main/java/com/bhaskar/reelcounter/ReelCounterService.kt) | Accessibility service: recognises short-video screens, counts swipes, shows Iris and the pause and block screens |
-| [`Platform.kt`](app/src/main/java/com/bhaskar/reelcounter/Platform.kt) | The supported apps and how each one's short-video screen is recognised |
-| [`CountStore.kt`](app/src/main/java/com/bhaskar/reelcounter/CountStore.kt) | Daily counts, time, opens, limit and settings |
-| [`Blocking.kt`](app/src/main/java/com/bhaskar/reelcounter/Blocking.kt) | Per-app blocking, focus hours and emergency unlocks |
-| [`IrisRig.kt`](app/src/main/java/com/bhaskar/reelcounter/IrisRig.kt), [`IrisRenderer.kt`](app/src/main/java/com/bhaskar/reelcounter/IrisRenderer.kt) | Iris: her moods, springs and drawing |
-| [`IslandView.kt`](app/src/main/java/com/bhaskar/reelcounter/IslandView.kt) | Iris over other apps, with the rolling count and timer |
-| [`MainActivity.kt`](app/src/main/java/com/bhaskar/reelcounter/MainActivity.kt) | Home and Progress |
-| [`SettingsActivity.kt`](app/src/main/java/com/bhaskar/reelcounter/SettingsActivity.kt) and the other `*Activity.kt` files | Settings, app pages, focus hours, Iris, More, permissions, screen time, onboarding |
-| [`widget/`](app/src/main/java/com/bhaskar/reelcounter/widget) | Home-screen widgets |
+| [`ReelCounterService.kt`](app/src/main/java/com/reelcounter/ReelCounterService.kt) | Accessibility service: recognises short-video screens, counts swipes, shows Iris and the pause and block screens |
+| [`Platform.kt`](app/src/main/java/com/reelcounter/Platform.kt) | The supported apps and how each one's short-video screen is recognised |
+| [`CountStore.kt`](app/src/main/java/com/reelcounter/CountStore.kt) | Daily counts, time, opens, limit and settings |
+| [`Blocking.kt`](app/src/main/java/com/reelcounter/Blocking.kt) | Per-app blocking, focus hours and emergency unlocks |
+| [`IrisRig.kt`](app/src/main/java/com/reelcounter/IrisRig.kt), [`IrisRenderer.kt`](app/src/main/java/com/reelcounter/IrisRenderer.kt) | Iris: her moods, springs and drawing |
+| [`IslandView.kt`](app/src/main/java/com/reelcounter/IslandView.kt) | Iris over other apps, with the rolling count and timer |
+| [`MainActivity.kt`](app/src/main/java/com/reelcounter/MainActivity.kt) | Home and Progress |
+| [`SettingsActivity.kt`](app/src/main/java/com/reelcounter/SettingsActivity.kt) and the other `*Activity.kt` files | Settings, app pages, focus hours, Iris, More, permissions, screen time, onboarding |
+| [`widget/`](app/src/main/java/com/reelcounter/widget) | Home-screen widgets |
 
 The screens and their flow follow the "Rokoreels App Flow" design (kept outside the repository).
 
@@ -128,7 +128,7 @@ The screens and their flow follow the "Rokoreels App Flow" design (kept outside 
 
 1. Open that app's Reels or Shorts screen with your phone connected to Android Studio.
 2. Use **Tools → Layout Inspector** to find the resource ID of the full-screen video pager.
-3. Add it to that app's `shortsViewIds` in [`Platform.kt`](app/src/main/java/com/bhaskar/reelcounter/Platform.kt).
+3. Add it to that app's `shortsViewIds` in [`Platform.kt`](app/src/main/java/com/reelcounter/Platform.kt).
 
 To support a new app, add an entry to `Platform.kt`.
 
@@ -140,4 +140,3 @@ To support a new app, add an entry to `Platform.kt`.
 ## Developers
 
 - Aman Shukla
-- Bhaskar Shukla

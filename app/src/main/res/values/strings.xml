@@ -246,7 +246,7 @@
     <string name="privacy_sub">Your reels never leave your phone</string>
     <string name="privacy_text">Rokoreels has no internet permission and no account. It only notices which app and screen are open and when you swipe, never your messages, passwords or what\'s in the videos. Counts and settings stay in the app\'s private storage on this phone.</string>
     <string name="about">About Rokoreels</string>
-    <string name="about_text">Rokoreels %1$s\n\nCounts every reel and helps you stop when you mean to.\n\nMade by Aman Shukla and Bhaskar Shukla.\n\nFonts: Bricolage Grotesque and Inter, both under the SIL Open Font License.</string>
+    <string name="about_text">Rokoreels %1$s\n\nCounts every reel and helps you stop when you mean to.\n\nMade by Aman Shukla.\n\nFonts: Bricolage Grotesque and Inter, both under the SIL Open Font License.</string>
 
     <!-- Counting health -->
     <string name="counting_health">Counting health</string>
