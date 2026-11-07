@@ -7,6 +7,7 @@ class ReelCounterApp : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashLog.install(this)
+        CountStore.freezeLimits(this)
         Analytics.init(this)
         AppTheme.applyNightMode(this)
     }

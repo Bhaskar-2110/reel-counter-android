@@ -24,6 +24,8 @@ data class WidgetData(
     /** Tracked apps with reels today, most first. */
     val topApps: List<Pair<Platform, Int>>,
     val week: List<Int>,
+    /** Each of the [week]'s days' own limit. */
+    val weekLimits: List<Int>,
     val daysUnder: Int,
     val daysCounted: Int,
 ) {
@@ -54,7 +56,8 @@ data class WidgetData(
                     .filter { it.second > 0 }
                     .sortedByDescending { it.second },
                 week = Stats.totals(ctx, days),
-                daysUnder = Stats.daysUnder(Stats.totals(ctx, counted), limit),
+                weekLimits = Stats.limits(ctx, days),
+                daysUnder = Stats.daysUnder(Stats.totals(ctx, counted), Stats.limits(ctx, counted)),
                 daysCounted = counted.size.coerceAtLeast(1),
             )
         }

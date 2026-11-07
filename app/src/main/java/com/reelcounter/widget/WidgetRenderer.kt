@@ -53,8 +53,11 @@ object WidgetRenderer {
         return bitmap
     }
 
-    /** The last 7 days, today last in the mood colour, days over the limit in red, a dashed limit line. */
-    fun weekBars(values: List<Int>, limit: Int, theme: WidgetTheme, todayColor: Int, width: Int = 420, height: Int = 110): Bitmap {
+    /**
+     * The last 7 days, today last in the mood colour, days over their own limit ([limits]) in
+     * red, and a dashed line at today's [limit].
+     */
+    fun weekBars(values: List<Int>, limits: List<Int>, limit: Int, theme: WidgetTheme, todayColor: Int, width: Int = 420, height: Int = 110): Bitmap {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val gap = width * 0.03f
@@ -65,7 +68,7 @@ object WidgetRenderer {
         values.forEachIndexed { i, v ->
             val h = max(height * v / scale, if (v > 0) 3f else 2f)
             paint.color = when {
-                v >= limit -> theme.moods[4]
+                v >= limits.getOrElse(i) { limit } -> theme.moods[4]
                 i == values.lastIndex -> todayColor
                 else -> (theme.moods[1] and 0x00FFFFFF) or (0xBF shl 24)
             }

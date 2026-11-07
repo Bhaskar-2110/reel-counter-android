@@ -24,8 +24,11 @@ sealed class BlockReason {
  * that ends before it starts runs over midnight, like Sleep 11 pm–7 am; then the morning part
  * belongs to the day it started on.
  *
- * Saved as "id;name;start;end;days;enabled;apps". Schedules saved before focus hours had app
- * picks have no apps field and lock every app.
+ * Saved as "id;name;start;end;days;enabled;apps", where apps is "*" for every app (including
+ * apps added in later versions) or platform names like "INSTAGRAM,YOUTUBE". Names, not
+ * ordinals, so the [Platform] list can grow in any order. Older saves are still read: a number
+ * is a bitmask in [LEGACY_ORDER], and no apps field (before focus hours had app picks) locks
+ * every app.
  */
 data class NoReelSchedule(
     val id: Int,
@@ -56,7 +59,7 @@ data class NoReelSchedule(
     val start: LocalTime get() = LocalTime.of(startMinute / 60, startMinute % 60)
 
     fun encode() = listOf(
-        id, name.replace(";", " ").replace("|", " "), startMinute, endMinute, days, if (enabled) 1 else 0, apps,
+        id, name.replace(";", " ").replace("|", " "), startMinute, endMinute, days, if (enabled) 1 else 0, encodeApps(apps),
     ).joinToString(";")
 
     companion object {
@@ -75,8 +78,32 @@ data class NoReelSchedule(
                 p[2].toIntOrNull()?.takeIf { it in 0 until 24 * 60 } ?: return null,
                 p[3].toIntOrNull()?.takeIf { it in 0 until 24 * 60 } ?: return null,
                 p[4].toIntOrNull() ?: return null, p[5] == "1",
-                p.getOrNull(6)?.toIntOrNull() ?: ALL_APPS,
+                decodeApps(p.getOrNull(6)),
             )
+        }
+
+        /**
+         * The order of [Platform] when app picks were saved as bitmasks by ordinal. Frozen: old
+         * saves must keep meaning the same apps whatever happens to the enum.
+         */
+        private val LEGACY_ORDER = listOf(
+            Platform.INSTAGRAM, Platform.YOUTUBE, Platform.SNAPCHAT, Platform.TIKTOK, Platform.MOJ, Platform.JOSH,
+        )
+        private const val ALL = "*"
+
+        private fun encodeApps(mask: Int): String =
+            if (mask == ALL_APPS) ALL
+            else Platform.entries.filter { mask and (1 shl it.ordinal) != 0 }.joinToString(",") { it.name }
+
+        private fun decodeApps(field: String?): Int {
+            if (field.isNullOrEmpty() || field == ALL) return ALL_APPS
+            field.toIntOrNull()?.let { legacy ->
+                // Every app of the time meant "all apps", so it covers apps added since.
+                if (legacy == (1 shl LEGACY_ORDER.size) - 1) return ALL_APPS
+                return appsMask(LEGACY_ORDER.filterIndexed { i, _ -> legacy and (1 shl i) != 0 })
+            }
+            // Names this version doesn't know (an app removed later) are left out.
+            return appsMask(field.split(',').mapNotNull { name -> Platform.entries.firstOrNull { it.name == name } })
         }
 
         /** Ready-made focus hours from the design, off until the user turns one on. */
@@ -184,11 +211,4 @@ object Blocking {
         if (CountStore.isOverLimit(ctx, platform)) return BlockReason.Limit
         return null
     }
-
-    /** How many rules [platform] has: block, reel limit, timer, and focus hours that lock it. */
-    fun ruleCount(ctx: Context, platform: Platform): Int = listOf(
-        blockAlways(ctx, platform),
-        CountStore.appLimit(ctx, platform) > 0,
-        CountStore.appTimeLimitMinutes(ctx, platform) > 0,
-    ).count { it }
 }

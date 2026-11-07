@@ -15,6 +15,12 @@ class StatsTest {
     }
 
     @Test
+    fun eachDayIsJudgedByItsOwnLimit() {
+        // 40 was under that day's 50; lowering today's limit to 30 doesn't change it.
+        assertEquals(2, Stats.daysUnder(listOf(40, 35, 20), limits = listOf(50, 30, 30)))
+    }
+
+    @Test
     fun changePercentRoundsAndNeedsSomethingToCompareWith() {
         assertEquals(-18, Stats.changePercent(24.6, 30.0))
         assertEquals(50, Stats.changePercent(15.0, 10.0))

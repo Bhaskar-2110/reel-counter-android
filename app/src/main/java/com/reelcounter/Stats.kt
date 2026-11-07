@@ -13,6 +13,9 @@ object Stats {
     /** Days in [totals] under [limit]. */
     fun daysUnder(totals: List<Int>, limit: Int) = totals.count { it < limit }
 
+    /** Days in [totals] under their own limit in [limits] (same order). */
+    fun daysUnder(totals: List<Int>, limits: List<Int>) = totals.indices.count { totals[it] < limits[it] }
+
     /**
      * Percentage change from [previous] to [current] (e.g. -18 for 18% fewer), or null when there
      * is nothing to compare with.
@@ -78,6 +81,9 @@ object Stats {
         generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.toList()
 
     fun totals(ctx: Context, days: List<LocalDate>) = days.map { CountStore.total(ctx, it) }
+
+    /** Each day's own daily limit (see [CountStore.limitOn]). */
+    fun limits(ctx: Context, days: List<LocalDate>) = days.map { CountStore.limitOn(ctx, it) }
 
     /** Reels in each hour, summed over [days]. */
     fun hours(ctx: Context, days: List<LocalDate>): IntArray {

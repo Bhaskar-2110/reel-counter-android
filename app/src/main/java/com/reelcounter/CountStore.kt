@@ -21,7 +21,6 @@ object CountStore {
     private const val KEY_THEME = "theme_mode"
     private const val KEY_FIRST_DAY = "first_day"
     private const val KEY_ONBOARDED = "onboarded"
-    private const val KEY_GUESS = "guess"
     private const val KEY_ISLAND_OFFSET = "counter_offset_dp"
     private const val KEY_ISLAND_X = "counter_x"
     private const val KEY_REDUCE_MOTION = "reduce_motion"
@@ -32,6 +31,7 @@ object CountStore {
     private const val KEY_ONGOING = "ongoing_notification"
     private const val KEY_PRUNED = "pruned_on"
     private const val KEY_THEME_CHOICE = "theme_choice"
+    private const val KEY_LIMITS_FROZEN = "limits_frozen"
 
     fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -49,16 +49,20 @@ object CountStore {
     fun appCount(ctx: Context, day: LocalDate, platform: Platform): Int =
         prefs(ctx).getInt(appKey(day, platform), 0)
 
-    /** Adds one reel to today's total, to [platform]'s own count and to this hour's count. */
+    /**
+     * Adds one reel to today's total, to [platform]'s own count and to this hour's count. The
+     * first reel of a day also records the day's limit (see [limitOn]).
+     */
     fun increment(ctx: Context, platform: Platform) {
         val today = LocalDate.now()
         val hour = hourKey(today, java.time.LocalTime.now().hour)
         val p = prefs(ctx)
-        p.edit()
+        val edit = p.edit()
             .putInt(key(today), p.getInt(key(today), 0) + 1)
             .putInt(appKey(today, platform), p.getInt(appKey(today, platform), 0) + 1)
             .putInt(hour, p.getInt(hour, 0) + 1)
-            .apply()
+        if (!p.contains(dayLimitKey(today))) edit.putInt(dayLimitKey(today), limit(ctx))
+        edit.apply()
     }
 
     private fun hourKey(day: LocalDate, hour: Int) = "hour|$day|$hour"
@@ -100,7 +104,41 @@ object CountStore {
 
     /** The daily limit for all apps together. */
     fun limit(ctx: Context): Int = prefs(ctx).getInt(KEY_LIMIT, 30)
-    fun setLimit(ctx: Context, value: Int) = prefs(ctx).edit().putInt(KEY_LIMIT, value).apply()
+
+    /** Sets the daily limit; today is judged by it too, earlier days keep the limit they had. */
+    fun setLimit(ctx: Context, value: Int) =
+        prefs(ctx).edit().putInt(KEY_LIMIT, value).putInt(dayLimitKey(LocalDate.now()), value).apply()
+
+    private fun dayLimitKey(day: LocalDate) = "limit|$day"
+
+    /**
+     * The daily limit that applied on [day]: saved with the day's first reel and on every limit
+     * change that day, so changing the limit later doesn't rewrite history. Days without one
+     * (no reels) fall back to the current limit.
+     */
+    fun limitOn(ctx: Context, day: LocalDate): Int = prefs(ctx).getInt(dayLimitKey(day), limit(ctx))
+
+    /**
+     * Once per install: days recorded before limits were saved per day get the limit in use
+     * now, so their streak and colours stay as they were and are fixed from then on.
+     */
+    fun freezeLimits(ctx: Context) {
+        val p = prefs(ctx)
+        if (p.getBoolean(KEY_LIMITS_FROZEN, false)) return
+        val limit = limit(ctx)
+        val edit = p.edit().putBoolean(KEY_LIMITS_FROZEN, true)
+        daysWithoutLimit(p.all.keys).forEach { edit.putInt(dayLimitKey(it), limit) }
+        edit.apply()
+    }
+
+    /** Days in [keys] with a total but no saved limit; split out so it can be tested. */
+    fun daysWithoutLimit(keys: Collection<String>): List<LocalDate> {
+        val withLimit = keys.filter { it.startsWith("limit|") }.map { it.removePrefix("limit|") }.toSet()
+        return keys.filter { it.startsWith("total|") }
+            .map { it.removePrefix("total|") }
+            .filter { it !in withLimit }
+            .mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
+    }
 
     /**
      * Minutes a day [platform] may be used, or 0 for no time limit. Once reached, the whole app
@@ -189,10 +227,6 @@ object CountStore {
     fun setTracked(ctx: Context, platform: Platform, tracked: Boolean) =
         prefs(ctx).edit().putBoolean("tracked|${platform.name}", tracked).apply()
 
-    /** The user's onboarding guess of reels a day, or 0 if they never gave one. */
-    fun guess(ctx: Context): Int = prefs(ctx).getInt(KEY_GUESS, 0)
-    fun setGuess(ctx: Context, value: Int) = prefs(ctx).edit().putInt(KEY_GUESS, value).apply()
-
     // Streak: days in a row without reaching a limit
 
     /**
@@ -210,9 +244,12 @@ object CountStore {
     /** True when a limit was reached on [day]. */
     fun limitHitOn(ctx: Context, day: LocalDate): Boolean = limitHit(ctx, day)
 
-    /** Days recorded before limit hits were tracked count as hit if the total reached the limit. */
+    /**
+     * A limit was hit on [day], or its total reached the limit that day had (days recorded
+     * before hits were tracked, or a limit lowered below the day's count).
+     */
     private fun limitHit(ctx: Context, day: LocalDate): Boolean =
-        prefs(ctx).getBoolean("hit|$day", false) || total(ctx, day) >= limit(ctx)
+        prefs(ctx).getBoolean("hit|$day", false) || total(ctx, day) >= limitOn(ctx, day)
 
     /** The first day with any recorded use, so days before the app was installed don't count. */
     fun firstDay(ctx: Context): LocalDate {
