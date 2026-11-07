@@ -23,7 +23,6 @@ class SettingsActivity : PageActivity() {
 
     override fun build() {
         if (MainActivity.needsAttention(this)) {
-            val off = !MainActivity.isServiceEnabled(this)
             content.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -33,7 +32,7 @@ class SettingsActivity : PageActivity() {
                 addView(LinearLayout(context).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(Ui.dp(context, 12f), 0, Ui.dp(context, 8f), 0)
-                    addView(Ui.text(context, R.style.Rr_Text_RowTitle, getString(if (off) R.string.alert_counting_off else R.string.alert_may_stop)))
+                    addView(Ui.text(context, R.style.Rr_Text_RowTitle, getString(R.string.alert_counting_off)))
                     addView(Ui.text(context, R.style.Rr_Text_Sub, getString(R.string.alert_one_fix)))
                 }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 addView(Ui.status(context, getString(R.string.fix), ok = false))

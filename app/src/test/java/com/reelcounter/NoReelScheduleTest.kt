@@ -74,6 +74,28 @@ class NoReelScheduleTest {
     }
 
     @Test
+    fun appsAreSavedByName() {
+        val work = study.copy(apps = NoReelSchedule.appsMask(listOf(Platform.INSTAGRAM, Platform.TIKTOK)))
+        assertTrue(work.encode().endsWith(";INSTAGRAM,TIKTOK"))
+        assertTrue(bedtime.encode().endsWith(";*"))
+    }
+
+    @Test
+    fun oldBitmaskSavesKeepTheirApps() {
+        // Saved by ordinal before apps were saved by name: 6 = YouTube and Snapchat.
+        val old = NoReelSchedule.decode("3;Study;840;960;31;1;6")!!
+        assertEquals(NoReelSchedule.appsMask(listOf(Platform.YOUTUBE, Platform.SNAPCHAT)), old.apps)
+        // 63 was every app there was, so it means every app.
+        assertEquals(NoReelSchedule.ALL_APPS, NoReelSchedule.decode("2;Sleep;1380;420;127;1;63")!!.apps)
+    }
+
+    @Test
+    fun unknownAppNamesAreLeftOut() {
+        val s = NoReelSchedule.decode("3;Study;840;960;31;1;YOUTUBE,SOME_REMOVED_APP")!!
+        assertEquals(NoReelSchedule.appsMask(listOf(Platform.YOUTUBE)), s.apps)
+    }
+
+    @Test
     fun namesCantBreakTheSavedFormat() {
         val tricky = bedtime.copy(name = "Late;night|scroll")
         val back = NoReelSchedule.decode(tricky.encode())!!

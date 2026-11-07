@@ -342,7 +342,8 @@ class MainActivity : BaseActivity(), SharedPreferences.OnSharedPreferenceChangeL
         val totals = Stats.totals(this, days)
         val countedTotals = Stats.totals(this, counted)
         val c = card(box)
-        kpi(c, getString(R.string.n_of_m, Stats.daysUnder(countedTotals, limit), counted.size.coerceAtLeast(1)), getString(R.string.days_under_limit))
+        val dayLimits = Stats.limits(this, days)
+        kpi(c, getString(R.string.n_of_m, Stats.daysUnder(countedTotals, Stats.limits(this, counted)), counted.size.coerceAtLeast(1)), getString(R.string.days_under_limit))
         val mood = moodColor(MoodColors.index(CountStore.total(this, today) / limit.toFloat()))
         val sky = (moodColor(1) and 0x00FFFFFF) or (0xBF shl 24)
         val labels = days.mapIndexed { i, d ->
@@ -350,7 +351,7 @@ class MainActivity : BaseActivity(), SharedPreferences.OnSharedPreferenceChangeL
         }
         val colors = IntArray(7) { i ->
             when {
-                totals[i] >= limit -> moodColor(4)
+                totals[i] >= dayLimits[i] -> moodColor(4)
                 i == 6 -> mood
                 else -> sky
             }
@@ -370,14 +371,14 @@ class MainActivity : BaseActivity(), SharedPreferences.OnSharedPreferenceChangeL
         val counted = sofar.filter { !it.isBefore(firstDay) }
         val c = card(box)
         val monthName = ym.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
-        kpi(c, getString(R.string.n_of_m, Stats.daysUnder(Stats.totals(this, counted), limit), counted.size.coerceAtLeast(1)),
+        kpi(c, getString(R.string.n_of_m, Stats.daysUnder(Stats.totals(this, counted), Stats.limits(this, counted)), counted.size.coerceAtLeast(1)),
             getString(R.string.month_days_under, monthName))
         val values = (1..ym.lengthOfMonth()).map { d ->
             val day = ym.atDay(d)
             if (day.isAfter(today) || day.isBefore(firstDay)) null else CountStore.total(this, day)
         }
         c.addView(CalendarView(this).apply {
-            setData(values, first.dayOfWeek.value - 1, today.dayOfMonth - 1, limit)
+            setData(values, first.dayOfWeek.value - 1, today.dayOfMonth - 1, Stats.limits(this@MainActivity, (1..ym.lengthOfMonth()).map(ym::atDay)))
         }, Ui.gap(this, 12f))
         c.addView(legend(), Ui.gap(this, 10f))
 

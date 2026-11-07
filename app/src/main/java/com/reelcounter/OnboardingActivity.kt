@@ -50,7 +50,7 @@ class OnboardingActivity : BaseActivity() {
         binding = ActivityOnboardingBinding.inflate(layoutInflater)
         setContentView(binding.root)
         // Replaying the tour (or restored from a backup): start from the saved limit.
-        if (CountStore.guess(this) > 0 || CountStore.prefs(this).contains("daily_limit")) limit = CountStore.limit(this)
+        if (CountStore.prefs(this).contains("daily_limit")) limit = CountStore.limit(this)
         binding.obBack.setOnClickListener { back() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = back()

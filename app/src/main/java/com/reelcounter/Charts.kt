@@ -157,7 +157,7 @@ class CalendarView @JvmOverloads constructor(context: Context, attrs: AttributeS
     private var days: List<Int?> = emptyList()
     private var firstWeekday = 0
     private var today = -1
-    private var limit = 1
+    private var limits: List<Int> = emptyList()
     private val headers = listOf("M", "T", "W", "T", "F", "S", "S")
 
     private val dp = resources.displayMetrics.density
@@ -183,12 +183,15 @@ class CalendarView @JvmOverloads constructor(context: Context, attrs: AttributeS
     private val box = RectF()
     private val gap get() = 5 * dp
 
-    /** [firstWeekday] 0 = Monday; [today] is the 0-based index of today, or -1. */
-    fun setData(days: List<Int?>, firstWeekday: Int, today: Int, limit: Int) {
+    /**
+     * [firstWeekday] 0 = Monday; [today] is the 0-based index of today, or -1; [limits] is each
+     * day's own limit (a day is judged by the limit it had, not today's).
+     */
+    fun setData(days: List<Int?>, firstWeekday: Int, today: Int, limits: List<Int>) {
         this.days = days
         this.firstWeekday = firstWeekday
         this.today = today
-        this.limit = max(1, limit)
+        this.limits = limits
         requestLayout()
         invalidate()
     }
@@ -223,6 +226,7 @@ class CalendarView @JvmOverloads constructor(context: Context, attrs: AttributeS
                 canvas.drawRoundRect(box, r, r, dashed)
                 text.color = faint
             } else {
+                val limit = max(1, limits.getOrElse(i) { 1 })
                 val over = v >= limit
                 val k = if (over) 0.4f + 0.3f * min(1f, (v - limit) / 10f) else (v / limit.toFloat()).coerceIn(.18f, .9f) * .55f
                 fill.color = withAlpha(if (over) angry else calm, k)

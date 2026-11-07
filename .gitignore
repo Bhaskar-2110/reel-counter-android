@@ -51,6 +51,15 @@ implemented.md
 CLAUDE.md
 design_iris_docs/
 
+# Claude knowledge base (local only; docs/ images and licences stay tracked)
+/docs/PROJECT_OVERVIEW.md
+/docs/ARCHITECTURE.md
+/docs/DATABASE_SCHEMA.md
+/docs/API_DOCUMENTATION.md
+/docs/BUSINESS_LOGIC.md
+/docs/DEVELOPMENT_STATUS.md
+/docs/FILE_MAP.md
+
 
 design
 design/

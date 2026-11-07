@@ -57,7 +57,7 @@ The first-run tour walks through this in six short steps.
 | Allow usage access (optional) | Shows what reels cost you last week, and screen time per app |
 | Set your limit | 30 a day is the default |
 | Turn on **Rokoreels** in Accessibility settings | Detects the Reels/Shorts screen and your swipes |
-| Allow notifications and unrestricted battery | Keeps counting running in the background |
+| Allow notifications | Keeps counting running in the background |
 
 On Android 13 and newer, the Accessibility switch is greyed out for apps installed outside the
 Play Store. Open **Settings → Apps → Rokoreels → ⋮ → Allow restricted settings**, then turn
@@ -73,7 +73,6 @@ may stop counting after a while. **Settings → More → Permissions** shows wha
 | Accessibility service | Knowing when a Reels/Shorts/Spotlight screen is open, counting swipes, showing Iris and the pause and block screens. It doesn't read messages or what you type, and ignores apps it doesn't support. |
 | Usage access | Screen time and opens per app. |
 | Foreground service and notifications | The ongoing "N reels today" notification that keeps counting alive (can be turned off in More). |
-| Ignore battery optimizations | Asking Android not to stop the app in the background. |
 | Internet | Optional Google sign-in (Firebase Authentication) and anonymous usage stats (Google Analytics for Firebase). |
 
 Counts and settings are stored in the app's private storage on the phone. Nothing the

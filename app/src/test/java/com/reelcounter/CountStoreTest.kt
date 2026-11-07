@@ -40,6 +40,21 @@ class CountStoreTest {
     }
 
     @Test
+    fun daysWithoutASavedLimitAreFoundForFreezing() {
+        val a = today.minusDays(3)
+        val b = today.minusDays(2)
+        val keys = listOf("total|$a", "total|$b", "limit|$b", "app|$a|INSTAGRAM", "daily_limit", "total|nonsense")
+        assertEquals(listOf(a), CountStore.daysWithoutLimit(keys))
+    }
+
+    @Test
+    fun savedDayLimitsArePrunedLikeDailyTotals() {
+        val old = today.minusDays(CountStore.KEEP_DETAIL_DAYS + 1)
+        val ancient = today.minusDays(CountStore.KEEP_DAYS + 1)
+        assertEquals(listOf("limit|$ancient"), CountStore.staleKeys(listOf("limit|$old", "limit|$ancient"), today))
+    }
+
+    @Test
     fun pauseWaitsLongerAfterTheFreeOpens() {
         assertEquals(0, CountStore.pauseSecondsFor(5))
         assertEquals(3, CountStore.pauseSecondsFor(6))

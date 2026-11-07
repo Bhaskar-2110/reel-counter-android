@@ -52,7 +52,7 @@ class DashboardWidget : AppWidgetProvider() {
                     }
                 }
 
-                setImageViewBitmap(R.id.weekChart, WidgetRenderer.weekBars(data.week, data.limit, theme, mood))
+                setImageViewBitmap(R.id.weekChart, WidgetRenderer.weekBars(data.week, data.weekLimits, data.limit, theme, mood))
                 setTextViewText(R.id.weekText, ctx.getString(R.string.widget_days_under, data.daysUnder, data.daysCounted))
                 setTextColor(R.id.weekText, theme.muted)
                 setContentDescription(R.id.widgetRoot, ctx.getString(R.string.widget_today_cd, data.total, data.limit))

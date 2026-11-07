@@ -150,7 +150,6 @@
 
     <!-- Settings -->
     <string name="alert_counting_off">Counting is off</string>
-    <string name="alert_may_stop">Counting may stop in the background</string>
     <string name="alert_one_fix">One setting needs fixing</string>
     <string name="your_rules">Your rules</string>
     <string name="daily_limit">Daily limit</string>

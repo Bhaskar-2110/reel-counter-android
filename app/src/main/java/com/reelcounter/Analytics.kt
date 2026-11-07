@@ -114,7 +114,7 @@ object Analytics {
 
         val params = ArrayList<Pair<String, Any>>()
         params += "day_total" to CountStore.total(ctx, yesterday).toLong()
-        params += "limit" to CountStore.limit(ctx).toLong()
+        params += "limit" to CountStore.limitOn(ctx, yesterday).toLong()
         params += "under_limit" to (if (CountStore.limitHitOn(ctx, yesterday)) 0L else 1L)
         params += "minutes" to Stats.minutes(ctx, listOf(yesterday)).first().toLong()
         val streak = CountStore.streak(ctx)
