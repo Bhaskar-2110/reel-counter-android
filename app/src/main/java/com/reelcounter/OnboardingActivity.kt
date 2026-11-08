@@ -35,15 +35,24 @@ class OnboardingActivity : BaseActivity() {
     private val io = Executors.newSingleThreadExecutor()
 
     private var step = Step.WELCOME
-    private var limit = 30
+    private var limit = LimitLock.DEFAULT
+    /** Daily social media time limit, minutes (step 3's second lock). */
+    private var timeLimit = TimeLock.DEFAULT
+    /** Step 3 has two locks: 0 = reels, 1 = social media time. */
+    private var limitPart = 0
     private var agreed = false
     private var revealed = false
     private var weekMs = -1L
     private var weekApps: List<String> = emptyList()
     private val faces = ArrayList<EyesView>()
     private var loggedStep: Step? = null
+    /** Settings was opened from step 4 in this session: coming back with counting off shows a banner. */
+    private var askedAccess = false
+    private var accessLogged = false
+    /** The lock's click sounds, made once and kept until onboarding closes. */
+    private var lockSounds: LockSounds? = null
 
-    private enum class Step { WELCOME, APPS, WEEK, LIMIT, ACCESS, RUNNING, IRIS }
+    private enum class Step { WELCOME, APPS, WEEK, LIMIT, ACCESS, RUNNING, IRIS, SIGNIN }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,6 +60,7 @@ class OnboardingActivity : BaseActivity() {
         setContentView(binding.root)
         // Replaying the tour (or restored from a backup): start from the saved limit.
         if (CountStore.prefs(this).contains("daily_limit")) limit = CountStore.limit(this)
+        CountStore.timeLimitMinutes(this).takeIf { it > 0 }?.let { timeLimit = it }
         binding.obBack.setOnClickListener { back() }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() = back()
@@ -68,15 +78,23 @@ class OnboardingActivity : BaseActivity() {
                 Analytics.permissionGranted(this, "usage")
                 show(Step.WEEK, direction = 0)
             }
+            // Back from Settings (or brought back by the guide): the "counting is on" summary,
+            // or the same screen with "Counting is still off".
             step == Step.ACCESS && MainActivity.isServiceEnabled(this) -> {
-                Analytics.permissionGranted(this, "accessibility")
-                show(Step.RUNNING, direction = 1)
+                if (askedAccess && !accessLogged) {
+                    accessLogged = true
+                    Analytics.permissionGranted(this, "accessibility")
+                }
+                show(Step.ACCESS, direction = 0)
             }
+            step == Step.ACCESS && askedAccess -> show(Step.ACCESS, direction = 0)
             step == Step.RUNNING -> show(Step.RUNNING, direction = 0)
         }
     }
 
     override fun onDestroy() {
+        lockSounds?.release()
+        lockSounds = null
         io.shutdownNow()
         super.onDestroy()
     }
@@ -85,6 +103,17 @@ class OnboardingActivity : BaseActivity() {
         when (step) {
             Step.WELCOME -> finish()
             Step.IRIS -> {}
+            // Step 3's time lock goes back to its reel lock; step 4 back to the time lock.
+            Step.LIMIT -> if (limitPart == 1) {
+                limitPart = 0
+                show(Step.LIMIT, direction = -1)
+            } else {
+                show(Step.WEEK, direction = -1)
+            }
+            Step.ACCESS -> {
+                limitPart = 1
+                show(Step.LIMIT, direction = -1)
+            }
             else -> show(Step.entries[step.ordinal - 1], direction = -1)
         }
     }
@@ -94,13 +123,15 @@ class OnboardingActivity : BaseActivity() {
     private fun restoreProgress() {
         val parts = CountStore.onboardingProgress(this)?.split('|') ?: return
         step = Step.entries.firstOrNull { it.name == parts.getOrNull(0) } ?: return
-        limit = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(5, 500) ?: limit
+        limit = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(CountStore.LIMIT_MIN, CountStore.LIMIT_MAX) ?: limit
         agreed = parts.getOrNull(2) == "1"
         revealed = parts.getOrNull(3) == "1"
+        // Added 2026-11-07; older saves have 4 fields.
+        parts.getOrNull(4)?.toIntOrNull()?.takeIf(TimeLock::isValid)?.let { timeLimit = it }
     }
 
     private fun saveProgress() = CountStore.setOnboardingProgress(
-        this, listOf(step.name, limit, if (agreed) 1 else 0, if (revealed) 1 else 0).joinToString("|"),
+        this, listOf(step.name, limit, if (agreed) 1 else 0, if (revealed) 1 else 0, timeLimit).joinToString("|"),
     )
 
     // Rendering
@@ -116,6 +147,9 @@ class OnboardingActivity : BaseActivity() {
         faces.clear()
         val body = binding.body
         body.removeAllViews()
+        binding.foot.removeAllViews()
+        binding.foot.isVisible = false
+        binding.primary.isVisible = true
         binding.ghost.isVisible = false
         binding.primary.isEnabled = true
         binding.primary.alpha = 1f
@@ -130,6 +164,7 @@ class OnboardingActivity : BaseActivity() {
             Step.ACCESS -> access()
             Step.RUNNING -> running()
             Step.IRIS -> meetIris()
+            Step.SIGNIN -> signInStep()
         }
         if (direction != 0 && !CountStore.reduceMotion(this)) {
             body.translationX = body.width * (if (direction > 0) 0.28f else -0.18f)
@@ -138,16 +173,16 @@ class OnboardingActivity : BaseActivity() {
         }
     }
 
-    /** The six-step bar (design ".prog"): segments up to this step in the accent colour. */
+    /** The seven-step bar (design ".prog"): segments up to this step in the accent colour. */
     private fun renderProgress(n: Int) {
         val bar = binding.progress
         bar.removeAllViews()
-        for (i in 1..6) {
+        for (i in 1..STEPS) {
             bar.addView(View(this).apply {
                 background = getDrawable(if (i <= n) R.drawable.progress_seg_on else R.drawable.progress_seg_off)
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply { if (i > 1) marginStart = Ui.dp(this@OnboardingActivity, 5f) })
         }
-        binding.stepText.text = getString(R.string.step_of, n.coerceIn(1, 6))
+        binding.stepText.text = getString(R.string.step_of, n.coerceIn(1, STEPS))
     }
 
     private fun title(text: CharSequence, center: Boolean = false) = binding.body.addView(
@@ -334,43 +369,229 @@ class OnboardingActivity : BaseActivity() {
         }
     }
 
-    /** A default, not a blank: 30, with "most pick" as a hint, and reels turned into minutes. */
+    /**
+     * Step 3/6 has two locks with the same look (design/reel-limit-lock.html): first the daily
+     * reel limit (three dials, 1–999, 100 = "most pick"), then the daily social media time limit
+     * (hours and minutes, 0:15–9:45, 2 h = "most pick"). Holding the button for 2.5 s locks each
+     * in as a promise; only Continue saves it. [limitPart] says which one is showing.
+     */
     private fun limitStep() {
+        if (limitPart == 0) {
+            if (!LimitLock.isValid(limit)) limit = LimitLock.DEFAULT
+            lockStep(LockScreen(
+                title = getString(R.string.onb_limit_question),
+                lede = getString(R.string.lock_lede),
+                lockedLede = { resources.getQuantityString(R.plurals.lock_lede_locked, it, it) },
+                start = limit,
+                isValid = LimitLock::isValid,
+                makeLock = { v, onChange -> reelLock(this, v, onChange) },
+                picks = LimitLock.QUICK_PICKS.map { it to if (it == LimitLock.DEFAULT) getString(R.string.most_pick, it) else it.toString() },
+                big = { it.toString() },
+                unit = { resources.getQuantityString(R.plurals.lock_reels_a_day, it) },
+                level = LimitLock::level,
+                sub = { v ->
+                    val level = LimitLock.level(v)
+                    val time = minutesText(LimitLock.minutes(v))
+                    when {
+                        v == 0 -> getString(R.string.lock_pick_one)
+                        level >= 3 -> getString(R.string.lock_thats, time)
+                        level == 2 -> getString(R.string.lock_bit_more, time)
+                        else -> getString(R.string.lock_about, time)
+                    }
+                },
+                oath = { resources.getQuantityString(R.plurals.lock_oath, it, it) },
+                onLocked = { limit = it },
+                onContinue = {
+                    CountStore.setLimit(this, limit)
+                    Analytics.limitSet(this, limit)
+                    limitPart = 1
+                    show(Step.LIMIT, 1)
+                },
+            ))
+        } else {
+            if (!TimeLock.isValid(timeLimit)) timeLimit = TimeLock.DEFAULT
+            lockStep(LockScreen(
+                title = getString(R.string.lock_time_title),
+                lede = getString(R.string.lock_time_lede),
+                lockedLede = { getString(R.string.lock_time_lede_locked, minutesText(it)) },
+                start = timeLimit,
+                isValid = TimeLock::isValid,
+                makeLock = { v, onChange -> timeLock(this, v, onChange) },
+                picks = TimeLock.QUICK_PICKS.map {
+                    val h = minutesText(it)
+                    it to if (it == TimeLock.DEFAULT) getString(R.string.lock_most_pick_text, h) else h
+                },
+                big = { minutesText(it) },
+                unit = { getString(R.string.lock_time_unit) },
+                level = TimeLock::level,
+                sub = { v ->
+                    val level = TimeLock.level(v)
+                    val week = TimeLock.weekHours(v)
+                    when {
+                        !TimeLock.isValid(v) -> getString(R.string.lock_time_pick_one)
+                        level >= 3 -> getString(R.string.lock_time_thats, week, minutesText(TimeLock.DEFAULT))
+                        level == 2 -> getString(R.string.lock_time_bit_more, week)
+                        else -> getString(R.string.lock_time_about, week)
+                    }
+                },
+                oath = { getString(R.string.lock_time_oath, minutesText(it)) },
+                onLocked = { timeLimit = it },
+                onContinue = {
+                    CountStore.setTimeLimitMinutes(this, timeLimit)
+                    Analytics.timeLimitSet(this, timeLimit)
+                    show(Step.ACCESS, 1)
+                },
+            ))
+        }
+    }
+
+    /** "45 min", "2 h", "2 h 30 min". */
+    private fun minutesText(m: Int) = when {
+        m < 60 -> getString(R.string.lock_min, m)
+        m % 60 == 0 -> getString(R.string.lock_h, m / 60)
+        else -> getString(R.string.lock_h_min, m / 60, m % 60)
+    }
+
+    /** What differs between step 3's two locks. */
+    private class LockScreen(
+        val title: String,
+        val lede: String,
+        val lockedLede: (Int) -> String,
+        val start: Int,
+        val isValid: (Int) -> Boolean,
+        val makeLock: (Int, (Int) -> Unit) -> ReelLockView,
+        val picks: List<Pair<Int, String>>,
+        val big: (Int) -> String,
+        val unit: (Int) -> String,
+        val level: (Int) -> Int,
+        val sub: (Int) -> String,
+        val oath: (Int) -> String,
+        val onLocked: (Int) -> Unit,
+        val onContinue: () -> Unit,
+    )
+
+    /** One combination-lock screen: dials, readout, quick picks, oath, hold button, hint. */
+    private fun lockStep(cfg: LockScreen) {
         binding.body.gravity = Gravity.NO_GRAVITY
-        title(getString(R.string.onb_limit_question))
-        val card = LinearLayout(this).apply {
+        binding.primary.isVisible = false
+        val text3 = attrColor(R.attr.rrText3)
+        val heading = Ui.text(this, R.style.Rr_Text_OnbTitle, cfg.title)
+        binding.body.addView(heading, Ui.gap(this, 0f))
+        val lede = Ui.text(this, R.style.Rr_Text_Body, cfg.lede).apply {
+            textSize = 15f
+            setTextColor(attrColor(R.attr.rrText2))
+        }
+        binding.body.addView(lede, Ui.gap(this, 8f))
+
+        // Readout: "100 reels a day" over "About 33 min of reels a day".
+        val number = TextView(this).apply {
+            typeface = resources.getFont(R.font.bricolage_grotesque)
+            fontVariationSettings = "'wght' 800"
+            fontFeatureSettings = "tnum"
+            textSize = 22f
+        }
+        val unit = Ui.text(this, R.style.Rr_Text).apply {
+            textSize = 17f
+            fontVariationSettings = "'wght' 700"
+        }
+        val sub = Ui.text(this, R.style.Rr_Text_Muted).apply {
+            textSize = 13f
+            gravity = Gravity.CENTER
+        }
+        val readout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            background = getDrawable(R.drawable.card_bg)
-            setPadding(Ui.dp(context, 14f), Ui.dp(context, 22f), Ui.dp(context, 14f), Ui.dp(context, 18f))
+            minimumHeight = Ui.dp(context, 52f)
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            addView(LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                addView(number)
+                addView(unit)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            })
+            addView(sub, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = Ui.dp(context, 4f)
+            })
         }
-        val minutes = Ui.text(this, R.style.Rr_Text_Muted, "")
-        val chips = ArrayList<TextView>()
-        lateinit var number: TextView
-        fun set(v: Int) {
-            limit = v.coerceIn(5, 500)
-            number.text = limit.toString()
-            Ui.bump(number)
-            minutes.text = getString(R.string.onb_minutes_a_day, Math.round(limit * 2.3f))
-            chips.forEach { it.isSelected = it.tag == limit }
-            primary(getString(R.string.onb_set_n, limit)) {
-                CountStore.setLimit(this, limit)
-                Analytics.limitSet(this, limit)
-                show(Step.ACCESS, 1)
+
+        // Pinned at the bottom: the oath, the hold button, a hint, and "Change the number".
+        val oath = TextView(this).apply {
+            gravity = Gravity.CENTER
+            typeface = resources.getFont(R.font.bricolage_grotesque)
+            fontVariationSettings = "'wght' 600"
+            textSize = 19f
+            setTextColor(text3)
+            setPadding(Ui.dp(context, 8f), 0, Ui.dp(context, 8f), 0)
+            // design: aria-live on the oath; it speaks when the number changes, not per word.
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        val hint = Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.lock_hint)).apply {
+            gravity = Gravity.CENTER
+            textSize = 12.5f
+            minHeight = Ui.dp(context, 18f)
+        }
+        var words: List<String> = emptyList()
+        var accentWords: Set<Int> = emptySet()
+        var lit = -1
+        fun paintOath(n: Int) {
+            if (n == lit) return
+            lit = n
+            val out = android.text.SpannableStringBuilder()
+            words.forEachIndexed { i, w ->
+                if (i > 0) out.append(' ')
+                val color = when {
+                    i >= n -> text3
+                    i in accentWords -> attrColor(R.attr.rrAccent)
+                    else -> attrColor(R.attr.rrText)
+                }
+                out.append(w, android.text.style.ForegroundColorSpan(color), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
-            saveProgress()
+            oath.text = out
         }
-        val (stepper, num) = Ui.stepper(this, limit, onType = { set(it) }) { set(limit + it) }
-        number = num
-        card.addView(stepper)
-        card.addView(minutes, Ui.gap(this, 12f).apply { width = ViewGroup.LayoutParams.WRAP_CONTENT })
-        binding.body.addView(card, Ui.gap(this, 18f))
+
+        var lockedIn = false
+        var current = cfg.start
+        val chips = ArrayList<TextView>()
+        lateinit var hold: HoldButton
+        var shown = -1
+        fun refresh(v: Int) {
+            if (v == shown) return
+            shown = v
+            val level = cfg.level(v)
+            number.text = cfg.big(v)
+            number.setTextColor(moodColor(level))
+            Ui.bump(number)
+            unit.text = " " + cfg.unit(v)
+            sub.text = cfg.sub(v)
+            sub.setTextColor(if (cfg.isValid(v) && level >= 2) moodColor(level) else text3)
+            readout.contentDescription = "${number.text} ${unit.text.trim()}. ${sub.text}"
+            chips.forEach { it.isSelected = it.tag == v }
+            hold.isEnabled = cfg.isValid(v)
+            if (cfg.isValid(v)) current = v
+            val oathText = cfg.oath(v)
+            words = oathText.split(' ')
+            // The number's words ("100", or "2 h 30 min") light in the accent colour.
+            val numberWords = cfg.big(v).split(' ')
+            val at = (0..words.size - numberWords.size).firstOrNull { words.subList(it, it + numberWords.size) == numberWords }
+            accentWords = if (at == null) emptySet() else (at until at + numberWords.size).toSet()
+            oath.contentDescription = oathText
+            lit = -1
+            paintOath(LimitLock.litWords(hold.progress, words.size))
+        }
+
+        val lock = cfg.makeLock(cfg.start) { refresh(it) }
+        val sounds = lockSounds ?: LockSounds(applicationContext).also { lockSounds = it }
+        lock.sounds = sounds
+        binding.body.addView(lock, Ui.gap(this, 4f))
+        binding.body.addView(readout, Ui.gap(this, 4f))
+
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        for (v in listOf(20, 30, 50)) {
-            row.addView(Ui.chip(this, if (v == 30) getString(R.string.most_pick, v) else v.toString(), limit == v) { set(v) }.also {
+        for ((v, label) in cfg.picks) {
+            row.addView(Ui.chip(this, label, false) { if (!lockedIn) lock.rollTo(v) }.also {
                 it.tag = v
                 chips += it
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -379,45 +600,165 @@ class OnboardingActivity : BaseActivity() {
             })
         }
         binding.body.addView(row, Ui.gap(this, 14f))
-        set(limit)
+        binding.body.addView(View(this), Ui.gap(this, 12f))
+
+        val relink = Ui.link(this, getString(R.string.lock_change)) {}.apply {
+            textSize = 13.5f
+            setTextColor(attrColor(R.attr.rrText2))
+            isVisible = false
+        }
+        fun setLockedIn(on: Boolean) {
+            lockedIn = on
+            lock.setLocked(on)
+            heading.text = if (on) getString(R.string.lock_title_locked) else cfg.title
+            lede.text = if (on) cfg.lockedLede(current) else cfg.lede
+            row.alpha = if (on) .35f else 1f
+            chips.forEach { it.isEnabled = !on }
+            hint.setTextColor(text3)
+            hint.text = getString(if (on) R.string.lock_later else R.string.lock_hint)
+            relink.isVisible = on
+            paintOath(if (on) words.size else 0)
+        }
+        relink.setOnClickListener {
+            setLockedIn(false)
+            hold.reset()
+            Haptics.light(this)
+            sounds.unlock()
+        }
+
+        hold = HoldButton(this, object : HoldButton.Listener {
+            override fun onHoldStart() {
+                lock.settle()
+                hint.setTextColor(text3)
+                hint.text = getString(R.string.lock_keep)
+            }
+
+            override fun onHoldProgress(progress: Float) {
+                lock.pressShackle(progress)
+                if (!lockedIn) paintOath(LimitLock.litWords(progress, words.size))
+            }
+
+            override fun onPulse(progress: Float) = sounds.pulse(progress)
+
+            override fun onLetGoEarly() {
+                hint.setTextColor(moodColor(2))
+                hint.text = getString(R.string.lock_too_soon)
+            }
+
+            override fun onLocked() {
+                current = lock.value.takeIf(cfg.isValid) ?: return
+                cfg.onLocked(current)
+                Haptics.lockThunk(this@OnboardingActivity)
+                sounds.lock()
+                setLockedIn(true)
+                saveProgress()
+                heading.announceForAccessibility("${heading.text} ${lede.text}")
+            }
+
+            override fun onContinue() = cfg.onContinue()
+        })
+
+        val foot = binding.foot
+        foot.isVisible = true
+        foot.addView(oath, Ui.gap(this, 6f))
+        foot.addView(hold, Ui.gap(this, 12f))
+        foot.addView(hint, Ui.gap(this, 10f))
+        foot.addView(relink, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = Ui.dp(this@OnboardingActivity, 2f)
+        })
+        refresh(lock.value)
     }
 
     /**
-     * The prominent disclosure Google Play asks for before sending people to Accessibility
-     * settings: what it can and can't see, side by side, and an explicit agreement.
+     * Step 4/6, the prominent disclosure Google Play asks for before sending people to
+     * Accessibility settings (design/reel-counting-permission.html): what it does and never does,
+     * the 3 taps ahead, two explainers, and an explicit "I understand" before the button works.
+     * The button opens Settings with a picture-in-picture guide on top ([GuideActivity]). Back here
+     * without counting on, a banner says nothing changed; with it on, a short summary and Continue.
      */
     private fun access() {
         binding.body.gravity = Gravity.NO_GRAVITY
+        binding.primary.isVisible = false
+        if (MainActivity.isServiceEnabled(this)) {
+            accessOn()
+            return
+        }
         title(getString(R.string.onb_access_title))
         para(getString(R.string.onb_access_text))
+        if (askedAccess) binding.body.addView(stillOffBanner(), Ui.gap(this, 4f))
+
+        // What it does and never does, with "never leaves your phone" as the card's footer.
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = getDrawable(R.drawable.card_bg)
-            val p = Ui.dp(context, 14f)
-            setPadding(p, p, p, p)
+            setPadding(Ui.dp(context, 16f), Ui.dp(context, 6f), Ui.dp(context, 16f), Ui.dp(context, 2f))
+            contentDescription = null
         }
-        fun line(ok: Boolean, text: Int) = card.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(TextView(context).apply {
-                this.text = if (ok) "✓" else "✕"
-                textSize = 13f
-                fontVariationSettings = "'wght' 800"
-                // Reassurances ("never reads…") in a quiet colour: red read as a warning.
-                setTextColor(if (ok) moodColor(0) else attrColor(R.attr.rrText3))
-            }, LinearLayout.LayoutParams(Ui.dp(context, 22f), ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(Ui.text(context, R.style.Rr_Text_Body, getString(text)).apply { textSize = 13f },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        }, Ui.gap(this, if (card.childCount == 0) 0f else 8f))
+        fun divider() = card.addView(View(this).apply { setBackgroundColor(attrColor(R.attr.rrLine)) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 1f)))
+        fun line(ok: Boolean, text: Int, sub: Int? = null) {
+            if (card.childCount > 0) divider()
+            card.addView(iconRow(if (ok) R.drawable.ic_check else R.drawable.ic_cross,
+                if (ok) attrColor(R.attr.rrAccent) else moodColor(3), getString(text), 14.5f, attrColor(R.attr.rrText), 18f,
+                sub?.let { getString(it) }))
+        }
+        // Google Play prominent disclosure: every use of the Accessibility service is listed here
+        // (counting, ad labels, Iris, and Back/Home to close Reels). Keep in step with
+        // service_description, the "full control" sheet and privacy_text.
         line(true, R.string.onb_access_yes1)
         line(true, R.string.onb_access_yes2)
+        line(true, R.string.onb_access_yes3, R.string.onb_access_yes3_sub)
         line(false, R.string.onb_access_no1)
-        line(false, R.string.onb_access_no2)
+        divider()
+        card.addView(iconRow(R.drawable.ic_lock, attrColor(R.attr.rrAccent), getString(R.string.onb_access_private), 13f, attrColor(R.attr.rrText2), 16f))
         binding.body.addView(card, Ui.gap(this, 16f))
 
-        if (MainActivity.isServiceEnabled(this)) {
-            primary(getString(R.string.onb_continue)) { show(Step.RUNNING, 1) }
-            return
+        // "3 taps in Settings": the path as chips, and the floating guide that comes along.
+        binding.body.addView(Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.onb_access_taps).uppercase()).apply {
+            textSize = 11f
+            letterSpacing = 0.14f
+            fontVariationSettings = "'wght' 700"
+        }, Ui.gap(this, 18f))
+        val crumbs = Ui.chipFlow(this).apply { contentDescription = getString(R.string.onb_access_crumbs) }
+        val names = listOf(getString(R.string.onb_access_crumb1), getString(R.string.app_name), getString(R.string.onb_access_crumb3))
+        names.forEachIndexed { i, name ->
+            val last = i == names.lastIndex
+            crumbs.addView(TextView(this).apply {
+                text = if (last) name else "$name  ›"
+                textSize = 12.5f
+                fontVariationSettings = "'wght' 600"
+                setTextColor(if (last) attrColor(R.attr.rrAccent) else attrColor(R.attr.rrText))
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = Ui.dp(context, 9f).toFloat()
+                    setColor(if (last) androidx.core.graphics.ColorUtils.setAlphaComponent(attrColor(R.attr.rrAccent), 41) else attrColor(R.attr.rrRaised))
+                }
+                setPadding(Ui.dp(context, 9f), Ui.dp(context, 6f), Ui.dp(context, 9f), Ui.dp(context, 6f))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            })
         }
+        binding.body.addView(crumbs, Ui.gap(this, 10f))
+        binding.body.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(pipThumb(), LinearLayout.LayoutParams(Ui.dp(context, 52f), Ui.dp(context, 68f)))
+            addView(Ui.text(context, R.style.Rr_Text_Body).apply {
+                textSize = 13.5f
+                setTextColor(attrColor(R.attr.rrText2))
+                text = android.text.SpannableStringBuilder().apply {
+                    append(getString(R.string.onb_access_guide_title), android.text.style.ForegroundColorSpan(attrColor(R.attr.rrText)), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    append(" ")
+                    append(getString(R.string.onb_access_guide_text))
+                }
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = Ui.dp(context, 12f) })
+        }, Ui.gap(this, 10f))
+
+        binding.body.addView(Ui.link(this, getString(R.string.onb_access_full_link)) { fullControlSheet() }.apply { textSize = 13.5f },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(this@OnboardingActivity, 14f) })
+        binding.body.addView(Ui.link(this, getString(R.string.onb_access_grey_link)) { greyedOutSheet() }.apply { textSize = 13.5f },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        // Pinned: the consent box, the button (looks off until ticked, but still answers), a hint.
         val box = View(this).apply { background = getDrawable(R.drawable.checkbox_bg) }
         val tick = android.widget.ImageView(this).apply {
             setImageResource(R.drawable.ic_check)
@@ -427,37 +768,251 @@ class OnboardingActivity : BaseActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(android.widget.FrameLayout(context).apply {
-                addView(box, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 20f), Ui.dp(context, 20f)))
-                addView(tick, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 14f), Ui.dp(context, 14f), Gravity.CENTER))
-            }, LinearLayout.LayoutParams(Ui.dp(context, 20f), Ui.dp(context, 20f)))
+                addView(box, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 24f), Ui.dp(context, 24f)))
+                addView(tick, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 15f), Ui.dp(context, 15f), Gravity.CENTER))
+            }, LinearLayout.LayoutParams(Ui.dp(context, 24f), Ui.dp(context, 24f)))
             addView(Ui.text(context, R.style.Rr_Text_Body, getString(R.string.onb_access_agree)).apply {
-                textSize = 13.5f
-                setPadding(Ui.dp(context, 10f), 0, 0, 0)
+                textSize = 14f
+                setPadding(Ui.dp(context, 12f), 0, 0, 0)
             })
-            setPadding(0, Ui.dp(context, 8f), 0, Ui.dp(context, 8f))
+            setPadding(Ui.dp(context, 4f), Ui.dp(context, 6f), Ui.dp(context, 4f), Ui.dp(context, 6f))
             isClickable = true
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         }
+        val cta = com.google.android.material.button.MaterialButton(this).apply { text = getString(R.string.enable_button) }
+        val hint = Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.onb_access_hint)).apply { gravity = Gravity.CENTER }
         fun sync() {
+            if (agreed) box.background = getDrawable(R.drawable.checkbox_bg)
             box.isSelected = agreed
             tick.isVisible = agreed
-            check.contentDescription = getString(R.string.onb_access_agree) + if (agreed) " ✓" else ""
-            primary(getString(R.string.enable_button), enabled = agreed) { MainActivity.openAccessibilitySettings(this) }
+            cta.alpha = if (agreed) 1f else 0.4f
+            check.contentDescription = getString(R.string.onb_access_agree)
+            check.accessibilityDelegate = object : View.AccessibilityDelegate() {
+                override fun onInitializeAccessibilityNodeInfo(host: View, info: android.view.accessibility.AccessibilityNodeInfo) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    info.className = android.widget.CheckBox::class.java.name
+                    info.isCheckable = true
+                    info.isChecked = agreed
+                }
+            }
+            if (agreed) {
+                hint.setTextColor(attrColor(R.attr.rrText3))
+                hint.text = getString(R.string.onb_access_hint)
+            }
         }
         check.setOnClickListener {
             agreed = !agreed
             saveProgress()
             sync()
         }
-        binding.body.addView(check, Ui.gap(this, 14f))
-        binding.body.addView(Ui.link(this, getString(R.string.a11y_help_link)) { MainActivity.showAccessibilityHelp(this) },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        cta.setOnClickListener {
+            if (!agreed) {
+                // Not yet: shake the box and say why, instead of a button that does nothing.
+                if (!CountStore.reduceMotion(this)) {
+                    val d = Ui.dp(this, 1f).toFloat()
+                    android.animation.ObjectAnimator.ofFloat(check, View.TRANSLATION_X, 0f, -5 * d, 5 * d, -3 * d, 2 * d, 0f).setDuration(400).start()
+                }
+                box.background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = Ui.dp(this@OnboardingActivity, 6f).toFloat()
+                    setStroke(Ui.dp(this@OnboardingActivity, 2f), moodColor(2))
+                }
+                hint.setTextColor(moodColor(2))
+                hint.text = getString(R.string.onb_access_tick_first)
+                hint.announceForAccessibility(hint.text)
+                Haptics.light(this)
+                return@setOnClickListener
+            }
+            askedAccess = true
+            GuideActivity.open(this)
+        }
         sync()
-        // No "Do it later": nothing can be counted without the Accessibility service. The step
-        // moves on by itself once it's on (see onResume).
-        binding.body.addView(Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.onb_access_required)).apply {
-            setPadding(Ui.dp(context, 4f), 0, Ui.dp(context, 4f), 0)
+        val foot = binding.foot
+        foot.isVisible = true
+        foot.addView(check, Ui.gap(this, 10f))
+        foot.addView(cta, Ui.gap(this, 10f))
+        foot.addView(hint, Ui.gap(this, 4f))
+    }
+
+    /** Counting is on: what was allowed, how to undo it, and Continue to step 5. */
+    private fun accessOn() {
+        binding.body.addView(android.widget.FrameLayout(this).apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = Ui.dp(context, 20f).toFloat()
+                setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(attrColor(R.attr.rrAccent), 41))
+            }
+            addView(android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_check)
+                imageTintList = android.content.res.ColorStateList.valueOf(attrColor(R.attr.rrAccent))
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 32f), Ui.dp(context, 32f), Gravity.CENTER))
+        }, LinearLayout.LayoutParams(Ui.dp(this, 64f), Ui.dp(this, 64f)).apply {
+            topMargin = Ui.dp(this@OnboardingActivity, 8f)
+            marginStart = Ui.dp(this@OnboardingActivity, 4f)
+        })
+        binding.body.addView(Ui.text(this, R.style.Rr_Text_OnbTitle, getString(R.string.onb_access_on_title)), Ui.gap(this, 18f))
+        para(getString(R.string.onb_access_on_text))
+        val receipt = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = getDrawable(R.drawable.card_bg)
+            setPadding(Ui.dp(context, 16f), Ui.dp(context, 4f), Ui.dp(context, 16f), Ui.dp(context, 4f))
+        }
+        listOf(
+            R.string.onb_access_r1 to R.string.onb_access_on,
+            R.string.onb_access_r2 to R.string.onb_access_on,
+            R.string.onb_access_r_close to R.string.onb_access_on,
+            R.string.onb_access_r3 to R.string.onb_access_never,
+            R.string.onb_access_r4 to R.string.onb_access_where,
+        ).forEachIndexed { i, (label, value) ->
+            if (i > 0) receipt.addView(View(this).apply { setBackgroundColor(attrColor(R.attr.rrLine)) },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 1f)))
+            receipt.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, Ui.dp(context, 11f), 0, Ui.dp(context, 11f))
+                addView(Ui.text(context, R.style.Rr_Text_Body, getString(label)).apply {
+                    textSize = 14f
+                    setTextColor(attrColor(R.attr.rrText2))
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(Ui.text(context, R.style.Rr_Text_Body, getString(value)).apply {
+                    textSize = 14f
+                    gravity = Gravity.END
+                    fontVariationSettings = "'wght' 600"
+                    setTextColor(if (value == R.string.onb_access_on) attrColor(R.attr.rrAccent) else attrColor(R.attr.rrText))
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = Ui.dp(context, 12f) })
+            })
+        }
+        binding.body.addView(receipt, Ui.gap(this, 16f))
+        val foot = binding.foot
+        foot.isVisible = true
+        foot.addView(com.google.android.material.button.MaterialButton(this).apply {
+            text = getString(R.string.onb_continue)
+            setOnClickListener { show(Step.RUNNING, 1) }
         }, Ui.gap(this, 10f))
+        foot.addView(Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.onb_access_on_hint)).apply { gravity = Gravity.CENTER }, Ui.gap(this, 4f))
+    }
+
+    /** A card row: a tinted icon, a line of text and an optional smaller second line (design .card li). */
+    private fun iconRow(icon: Int, tint: Int, text: CharSequence, size: Float, color: Int, iconDp: Float, sub: CharSequence? = null) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, Ui.dp(context, 11f), 0, Ui.dp(context, 11f))
+        addView(android.widget.ImageView(context).apply {
+            setImageResource(icon)
+            imageTintList = android.content.res.ColorStateList.valueOf(tint)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, LinearLayout.LayoutParams(Ui.dp(context, iconDp), Ui.dp(context, iconDp)).apply { topMargin = Ui.dp(context, 1f) })
+        addView(LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Ui.text(context, R.style.Rr_Text_Body, text).apply {
+                textSize = size
+                setTextColor(color)
+            })
+            if (sub != null) addView(Ui.text(context, R.style.Rr_Text_Muted, sub).apply { textSize = 12.5f }, Ui.gap(context, 2f))
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = Ui.dp(context, 12f) })
+    }
+
+    /** "Counting is still off. Nothing changed on your phone…" (design .banner). */
+    private fun stillOffBanner() = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        val warn = moodColor(2)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = Ui.dp(context, 16f).toFloat()
+            setColor(androidx.core.graphics.ColorUtils.compositeColors(androidx.core.graphics.ColorUtils.setAlphaComponent(warn, 26), attrColor(R.attr.rrSurface)))
+            setStroke(Ui.dp(context, 1f), androidx.core.graphics.ColorUtils.setAlphaComponent(warn, 89))
+        }
+        setPadding(Ui.dp(context, 14f), Ui.dp(context, 12f), Ui.dp(context, 14f), Ui.dp(context, 12f))
+        addView(android.widget.ImageView(context).apply {
+            setImageResource(R.drawable.ic_info)
+            imageTintList = android.content.res.ColorStateList.valueOf(warn)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, LinearLayout.LayoutParams(Ui.dp(context, 20f), Ui.dp(context, 20f)))
+        addView(Ui.text(context, R.style.Rr_Text_Body).apply {
+            textSize = 13.5f
+            text = android.text.SpannableStringBuilder().apply {
+                append(getString(R.string.onb_access_still_off), android.text.style.StyleSpan(android.graphics.Typeface.BOLD), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                append(" ")
+                append(getString(R.string.onb_access_still_off_text))
+            }
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = Ui.dp(context, 10f) })
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+    }
+
+    /** The little picture-in-picture icon next to "A small video guide comes with you" (design .pipthumb). */
+    private fun pipThumb() = android.widget.FrameLayout(this).apply {
+        background = getDrawable(R.drawable.card_bg)
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        addView(android.widget.FrameLayout(context).apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = Ui.dp(context, 5f).toFloat()
+                setColor(attrColor(R.attr.rrAccent))
+            }
+            addView(android.widget.ImageView(context).apply {
+                setImageResource(R.drawable.ic_play)
+                imageTintList = android.content.res.ColorStateList.valueOf(attrColor(R.attr.rrOnAccent))
+            }, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 14f), Ui.dp(context, 14f), Gravity.CENTER))
+        }, android.widget.FrameLayout.LayoutParams(Ui.dp(context, 24f), Ui.dp(context, 31f), Gravity.END or Gravity.BOTTOM).apply {
+            marginEnd = Ui.dp(context, 5f)
+            bottomMargin = Ui.dp(context, 5f)
+        })
+    }
+
+    /** Android's "full control" wording, line by line, in Rokoreels' terms. */
+    private fun fullControlSheet() = Ui.sheet(this, getString(R.string.full_title), button = getString(R.string.got_it)) { box ->
+        box.addView(Ui.text(this, R.style.Rr_Text_Body, getString(R.string.full_text)).apply {
+            textSize = 14f
+            setTextColor(attrColor(R.attr.rrText2))
+        }, Ui.gap(this, 8f))
+        for ((q, a) in listOf(R.string.full_q1 to R.string.full_a1, R.string.full_q2 to R.string.full_a2)) {
+            box.addView(Ui.text(this, R.style.Rr_Text_Body, getString(q)).apply {
+                textSize = 14.5f
+                fontVariationSettings = "'wght' 600"
+            }, Ui.gap(this, 14f))
+            box.addView(Ui.text(this, R.style.Rr_Text_Body, getString(a)).apply {
+                textSize = 13.5f
+                setTextColor(attrColor(R.attr.rrText2))
+            }, Ui.gap(this, 4f))
+        }
+    }
+
+    /** Android 13+ "restricted setting" for apps installed from a file: how to allow it. */
+    private fun greyedOutSheet() = Ui.sheet(this, getString(R.string.grey_title), button = getString(R.string.grey_button), onButton = {
+        startActivity(
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }) { box ->
+        box.addView(Ui.text(this, R.style.Rr_Text_Body, getString(R.string.grey_text)).apply {
+            textSize = 14f
+            setTextColor(attrColor(R.attr.rrText2))
+        }, Ui.gap(this, 8f))
+        val steps = listOf(R.string.grey_s1, R.string.grey_s2, R.string.grey_s3, R.string.grey_s4)
+        steps.forEachIndexed { i, s ->
+            box.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = Ui.dp(context, 14f).toFloat()
+                    setColor(attrColor(R.attr.rrRaised))
+                }
+                setPadding(Ui.dp(context, 12f), Ui.dp(context, 11f), Ui.dp(context, 12f), Ui.dp(context, 11f))
+                addView(TextView(context).apply {
+                    text = (i + 1).toString()
+                    gravity = Gravity.CENTER
+                    typeface = resources.getFont(R.font.bricolage_grotesque)
+                    fontVariationSettings = "'wght' 800"
+                    textSize = 14f
+                    setTextColor(attrColor(R.attr.rrAccent))
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(attrColor(R.attr.rrBg))
+                    }
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }, LinearLayout.LayoutParams(Ui.dp(context, 28f), Ui.dp(context, 28f)))
+                addView(LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(Ui.text(context, R.style.Rr_Text_Body, getText(s)).apply { textSize = 14f })
+                    if (s == R.string.grey_s3) addView(Ui.text(context, R.style.Rr_Text_Muted, getString(R.string.grey_s3_sub)).apply { textSize = 12f })
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = Ui.dp(context, 12f) })
+            }, Ui.gap(this, if (i == 0) 12f else 8f))
+        }
     }
 
     /** Notifications keep the counter alive; status shows in place. */
@@ -538,11 +1093,61 @@ class OnboardingActivity : BaseActivity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
         binding.body.addView(row, Ui.gap(this, 22f))
-        primary(getString(R.string.go_home)) { finishOnboarding() }
+        // Signed in already ("I already have an account" on Welcome): nothing left to do.
+        if (Account.current(this) != null) primary(getString(R.string.go_home)) { finishOnboarding() }
+        else primary(getString(R.string.onb_continue)) { show(Step.SIGNIN, 1) }
+    }
+
+    /**
+     * Step 7/7: sign in with Google (required, owner's decision 2026-11-08). Onboarding finishes
+     * only once Firebase has a user; closing the picker or an error keeps you here. A build with
+     * no Firebase config can't sign anyone in, so it says so and lets you through instead of
+     * locking you out of the app. Sign-in only: counts and settings stay on the phone.
+     */
+    private fun signInStep() {
+        binding.body.gravity = Gravity.CENTER_HORIZONTAL
+        binding.body.addView(face(Mood.HAPPY, 150f).apply {
+            (layoutParams as LinearLayout.LayoutParams).apply {
+                topMargin = Ui.dp(context, 24f)
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        })
+        title(getString(R.string.onb_signin_title), center = true)
+        para(getString(R.string.onb_signin_text), center = true)
+        val user = Account.current(this)
+        when {
+            user != null -> {
+                para(getString(R.string.signed_in_as, Account.label(user)), center = true)
+                primary(getString(R.string.go_home)) { finishOnboarding() }
+            }
+            !Account.isSetUp(this) -> {
+                para(getString(R.string.sign_in_not_set_up), center = true)
+                primary(getString(R.string.go_home)) { finishOnboarding() }
+            }
+            else -> primary(getString(R.string.onb_signin_button)) { startSignIn() }
+        }
+    }
+
+    private fun startSignIn() {
+        binding.primary.isEnabled = false
+        binding.primary.text = getString(R.string.onb_signin_wait)
+        Account.signIn(this) { user, error ->
+            if (isFinishing || isDestroyed || step != Step.SIGNIN) return@signIn
+            if (user != null) {
+                Toast.makeText(this, getString(R.string.signed_in_as, Account.label(user)), Toast.LENGTH_SHORT).show()
+                finishOnboarding()
+            } else {
+                // Closed the picker (no error) or failed: stay, ready to try again.
+                if (error != null) Toast.makeText(this, error, Toast.LENGTH_LONG).show()
+                binding.primary.isEnabled = true
+                binding.primary.text = getString(R.string.onb_signin_button)
+            }
+        }
     }
 
     private fun finishOnboarding() {
         CountStore.setLimit(this, limit)
+        CountStore.setTimeLimitMinutes(this, timeLimit)
         CountStore.setOnboarded(this)
         Analytics.onboardingComplete(this)
         if (MainActivity.isServiceEnabled(this)) KeepAliveService.start(this)
@@ -562,6 +1167,8 @@ class OnboardingActivity : BaseActivity() {
 
     companion object {
         private const val REQUEST_NOTIF = 7
+        /** Steps in the progress bar (Welcome isn't one). */
+        private const val STEPS = 7
         /** Kept on this phone only (not backed up): a new phone should get the real prompt. */
         private const val KEY_NOTIF_ASKED = "notif_asked"
 

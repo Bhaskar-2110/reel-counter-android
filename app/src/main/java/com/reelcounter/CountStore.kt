@@ -15,6 +15,7 @@ import java.time.ZoneId
 object CountStore {
     private const val PREFS = "reel_counts"
     private const val KEY_LIMIT = "daily_limit"
+    private const val KEY_TIME_LIMIT = "time_limit_total"
     private const val KEY_BLOCK = "block_at_limit"
     private const val KEY_BADGE = "show_badge"
     private const val KEY_PAUSE = "pause_on_open"
@@ -103,7 +104,14 @@ object CountStore {
     // Limits
 
     /** The daily limit for all apps together. */
-    fun limit(ctx: Context): Int = prefs(ctx).getInt(KEY_LIMIT, 30)
+    fun limit(ctx: Context): Int = prefs(ctx).getInt(KEY_LIMIT, LIMIT_DEFAULT)
+
+    /** The daily limit's range everywhere it can be set (onboarding's lock dials go to 999). */
+    const val LIMIT_MIN = 1
+    const val LIMIT_MAX = 999
+
+    /** The default and "most pick" daily limit (onboarding's lock and Settings' quick picks). */
+    const val LIMIT_DEFAULT = 100
 
     /** Sets the daily limit; today is judged by it too, earlier days keep the limit they had. */
     fun setLimit(ctx: Context, value: Int) =
@@ -144,6 +152,21 @@ object CountStore {
      * Minutes a day [platform] may be used, or 0 for no time limit. Once reached, the whole app
      * is blocked until midnight.
      */
+    /**
+     * The daily social media time limit in minutes, across every monitored app together
+     * (reel apps' time too); 0 = off. Unset is off, so updating doesn't start blocking apps;
+     * onboarding sets it (2 h by default).
+     */
+    fun timeLimitMinutes(ctx: Context): Int = prefs(ctx).getInt(KEY_TIME_LIMIT, 0)
+
+    fun setTimeLimitMinutes(ctx: Context, minutes: Int) =
+        prefs(ctx).edit().putInt(KEY_TIME_LIMIT, if (minutes <= 0) 0 else minutes.coerceIn(TIME_LIMIT_MIN, TIME_LIMIT_MAX)).apply()
+
+    /** The time limit's range and default: 15 min steps from 0:15 to 9:45 (the lock's two dials). */
+    const val TIME_LIMIT_MIN = 15
+    const val TIME_LIMIT_MAX = 9 * 60 + 45
+    const val TIME_LIMIT_DEFAULT = 120
+
     fun appTimeLimitMinutes(ctx: Context, platform: Platform): Int = prefs(ctx).getInt(appTimeLimitKey(platform), 0)
     fun setAppTimeLimitMinutes(ctx: Context, platform: Platform, minutes: Int) =
         prefs(ctx).edit().putInt(appTimeLimitKey(platform), minutes).apply()
@@ -221,8 +244,13 @@ object CountStore {
     }
 
     /** Whether [platform] is counted at all; chosen in onboarding ("Which apps?"). */
+    /**
+     * Whether Rokoreels watches this app. Unset: reel apps yes; time-only apps (added
+     * 2026-11-07) no, so updating doesn't suddenly put Iris over Facebook, X or Reddit.
+     * Onboarding sets every app explicitly.
+     */
     fun isTracked(ctx: Context, platform: Platform): Boolean =
-        prefs(ctx).getBoolean("tracked|${platform.name}", true)
+        prefs(ctx).getBoolean("tracked|${platform.name}", !platform.timeOnly)
 
     fun setTracked(ctx: Context, platform: Platform, tracked: Boolean) =
         prefs(ctx).edit().putBoolean("tracked|${platform.name}", tracked).apply()

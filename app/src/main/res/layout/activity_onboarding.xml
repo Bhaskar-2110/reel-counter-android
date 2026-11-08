@@ -73,6 +73,14 @@
             android:paddingTop="16dp" />
     </ScrollView>
 
+    <!-- Pinned above the button for steps that need it (the lock's oath, the consent box). -->
+    <LinearLayout
+        android:id="@+id/foot"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone" />
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/primary"
         android:layout_width="match_parent"

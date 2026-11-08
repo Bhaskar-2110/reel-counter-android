@@ -13,6 +13,11 @@ package com.reelcounter
  * [progressBarId]: the ID of the video's progress bar, whose description ("29 seconds of
  * 59 seconds") shows when a new video starts; or [signatureRootId]: a view whose text (the
  * creator and sound line) changes with each video.
+ *
+ * [timeOnly] apps (Facebook, X, Reddit) are only timed, never counted: no reels, no reel limits
+ * or "Block Reels"; Iris shows the time and the daily time limits apply (2026-11-07). New
+ * entries can go anywhere (focus hours save app names), but keep them after the reel apps so
+ * lists read reel apps first.
  */
 enum class Platform(
     val label: String,
@@ -27,6 +32,8 @@ enum class Platform(
      * than from a chat, so "Allow a reel someone sends you" doesn't apply.
      */
     val mainTabBarId: String? = null,
+    /** Time only: never counts reels (see the class comment). */
+    val timeOnly: Boolean = false,
 ) {
     INSTAGRAM(
         "Instagram Reels",
@@ -64,10 +71,21 @@ enum class Platform(
     ),
     TIKTOK("TikTok", "TikTok", setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")),
     MOJ("Moj", "Moj", setOf("in.mohalla.video")),
-    JOSH("Josh", "Josh", setOf("com.eterno.shortvideos"));
+    JOSH("Josh", "Josh", setOf("com.eterno.shortvideos")),
 
-    /** True when everything in the app is a short-video feed. */
-    val isWholeApp: Boolean get() = shortsViewIds.isEmpty() && shortsIdHints.isEmpty()
+    // Timed only (packages also in the manifest's <queries> and SocialApps.NAMES).
+    FACEBOOK("Facebook", "Facebook", setOf("com.facebook.katana", "com.facebook.lite"), timeOnly = true),
+    X("X", "X", setOf("com.twitter.android"), timeOnly = true),
+    REDDIT("Reddit", "Reddit", setOf("com.reddit.frontpage"), timeOnly = true);
+
+    /**
+     * True when everything in the app is a short-video feed (every full-screen swipe is a reel).
+     * Never for [timeOnly] apps: scrolling their feeds must not count.
+     */
+    val isWholeApp: Boolean get() = !timeOnly && shortsViewIds.isEmpty() && shortsIdHints.isEmpty()
+
+    /** Reels are counted in this app (false for [timeOnly] apps). */
+    val countsReels: Boolean get() = !timeOnly
 
     companion object {
         fun forPackage(pkg: String): Platform? = entries.firstOrNull { pkg in it.packages }

@@ -56,6 +56,9 @@ object Analytics {
         })
     }
 
+    /** The daily social media time limit was set (minutes; 0 = turned off). */
+    fun timeLimitSet(ctx: Context, minutes: Int) = log(ctx, "time_limit_set", "minutes" to minutes.toLong())
+
     /** The Settings stepper changes the limit on every tap: log only where it settles. */
     fun limitSetSoon(ctx: Context, value: Int) {
         pendingLimit?.let(main::removeCallbacks)
@@ -121,7 +124,10 @@ object Analytics {
         // The streak counts today; leave it out when today already broke it.
         if (!streak.brokenToday) params += "streak" to (streak.current - 1).coerceAtLeast(0).toLong()
         for (p in Platform.entries) {
-            if (CountStore.isTracked(ctx, p)) params += p.name.lowercase() to CountStore.appCount(ctx, yesterday, p).toLong()
+            if (!CountStore.isTracked(ctx, p)) continue
+            // Time-only apps send minutes ("facebook_min"); reel apps their reel count.
+            if (p.timeOnly) params += "${p.name.lowercase()}_min" to CountStore.appTime(ctx, yesterday, p) / 60_000L
+            else params += p.name.lowercase() to CountStore.appCount(ctx, yesterday, p).toLong()
         }
         log(ctx, "daily_summary", *params.toTypedArray())
     }

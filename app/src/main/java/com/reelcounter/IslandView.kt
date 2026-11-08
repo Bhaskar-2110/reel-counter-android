@@ -155,9 +155,15 @@ class IslandView @JvmOverloads constructor(
      */
     var cycle = false
 
+    /**
+     * Time-only apps (Facebook, X, Reddit): the line always shows the timer, never a reel count
+     * (2026-11-07). Her face and motion are unchanged; the service sets her mood from time used.
+     */
+    var timerOnly = false
+
     /** The count or today's time; switches and count changes roll, the timer's ticks don't. */
     private fun updateLine() {
-        val timer = sessionStart > 0L && if (cycle) {
+        val timer = sessionStart > 0L && if (timerOnly) true else if (cycle) {
             (time / SWAP_SECONDS).toInt() % 2 == 1
         } else {
             time - countShownAt > COUNT_HOLD_SECONDS

@@ -17,6 +17,8 @@ import kotlin.math.roundToInt
  * Everything about one app on one page (design "App page", like Digital Wellbeing's app page):
  * today's reels and minutes against its limits, then every rule for the app, strongest first:
  * block, reel limit, daily timer, focus hours. Switches flip in place; limits open a sheet.
+ * Time-only apps (Facebook, X, Reddit) show only time: no reel meter, reel limit, "Block Reels"
+ * or "Allow a reel someone sends you", and their week in minutes.
  */
 class AppDetailActivity : PageActivity() {
 
@@ -58,10 +60,11 @@ class AppDetailActivity : PageActivity() {
             })
         }, Ui.gap(this, 4f))
 
-        // Two meters: reels against the reel limit, minutes against the timer.
+        // Two meters: reels against the reel limit, minutes against the timer (time only: one).
+        val timeOnly = platform.timeOnly
         val stats = card(12f)
         val grid = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        grid.addView(meterCell(
+        if (!timeOnly) grid.addView(meterCell(
             getString(R.string.reels_today_label_cap),
             reels.toString(),
             if (!blocked && reelLimit > 0) " / $reelLimit" else "",
@@ -87,20 +90,22 @@ class AppDetailActivity : PageActivity() {
         section(getString(R.string.rules_for, platform.shortName))
         val rules = list()
         val whole = platform.isWholeApp
-        Ui.switchRow(
-            rules, R.drawable.ic_block,
-            if (whole) getString(R.string.block_whole_app) else getString(R.string.block_reels_of, platform.reelWord(this)),
-            if (whole) getString(R.string.block_whole_app_sub) else getString(R.string.block_reels_sub, platform.reelWord(this)),
-            blocked,
-        ) { Blocking.setBlockAlways(this, platform, it) }
-        val limitRow = Ui.setRow(
-            rules, R.drawable.ic_limit, getString(R.string.reel_limit),
-            if (blocked) getString(R.string.reel_limit_not_needed) else getString(R.string.reel_limit_sub),
-            listOf(Ui.value(this, if (reelLimit > 0) resources.getQuantityString(R.plurals.n_reels, reelLimit, reelLimit) else getString(R.string.none)), Ui.chevron(this)),
-        ) { reelLimitSheet(this, platform) }
-        if (blocked) {
-            limitRow.alpha = 0.45f
-            limitRow.isEnabled = false
+        if (!timeOnly) {
+            Ui.switchRow(
+                rules, R.drawable.ic_block,
+                if (whole) getString(R.string.block_whole_app) else getString(R.string.block_reels_of, platform.reelWord(this)),
+                if (whole) getString(R.string.block_whole_app_sub) else getString(R.string.block_reels_sub, platform.reelWord(this)),
+                blocked,
+            ) { Blocking.setBlockAlways(this, platform, it) }
+            val limitRow = Ui.setRow(
+                rules, R.drawable.ic_limit, getString(R.string.reel_limit),
+                if (blocked) getString(R.string.reel_limit_not_needed) else getString(R.string.reel_limit_sub),
+                listOf(Ui.value(this, if (reelLimit > 0) resources.getQuantityString(R.plurals.n_reels, reelLimit, reelLimit) else getString(R.string.none)), Ui.chevron(this)),
+            ) { reelLimitSheet(this, platform) }
+            if (blocked) {
+                limitRow.alpha = 0.45f
+                limitRow.isEnabled = false
+            }
         }
         Ui.setRow(
             rules, R.drawable.ic_timer, getString(R.string.daily_timer), getString(R.string.daily_timer_sub),
@@ -115,7 +120,7 @@ class AppDetailActivity : PageActivity() {
 
         section(R.string.more)
         val more = list()
-        if (!whole) {
+        if (!whole && !timeOnly) {
             Ui.switchRow(more, R.drawable.ic_user, getString(R.string.detail_allow_first), getString(R.string.detail_allow_first_hint),
                 Blocking.allowFirst(this, platform)) { Blocking.setAllowFirst(this, platform, it) }
         }
@@ -126,21 +131,25 @@ class AppDetailActivity : PageActivity() {
         val week = card(12f)
         week.addView(Ui.text(this, R.style.Rr_Text_CardTitle, getString(R.string.this_week)))
         val days = (6 downTo 0).map { today.minusDays(it.toLong()) }
-        val counts = days.map { CountStore.appCount(this, it, platform) }
-        val mood = MoodColors.forProgress(this, CountStore.limitProgress(this, platform))
+        // Reels per day, or minutes per day for time-only apps.
+        val counts = days.map {
+            if (timeOnly) (CountStore.appTime(this, it, platform) / 60_000L).toInt() else CountStore.appCount(this, it, platform)
+        }
+        val mood = MoodColors.forProgress(this, if (timeOnly) (if (timer > 0) timeMs / (timer * 60_000f) else 0f) else CountStore.limitProgress(this, platform))
         val sky = (moodColor(1) and 0x00FFFFFF) or (0xBF shl 24)
         week.addView(WeekBarsView(this).apply {
             setData(
                 counts.toIntArray(),
                 days.mapIndexed { i, d -> if (i == 6) getString(R.string.today) else d.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()) },
                 IntArray(7) { if (it == 6) mood else sky },
-                reelLimit,
+                if (timeOnly) timer else reelLimit,
             )
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 100f)).apply { topMargin = Ui.dp(this@AppDetailActivity, 10f) })
         val opens = CountStore.appOpens(this, today, platform)
         val counted = Stats.counted(this, days).size.coerceAtLeast(1)
         week.addView(Ui.text(this, R.style.Rr_Text_Muted,
-            getString(R.string.app_week_line, resources.getQuantityString(R.plurals.opens_today, opens, opens), counts.sum() / counted)), Ui.gap(this, 8f))
+            getString(if (timeOnly) R.string.app_week_line_time else R.string.app_week_line,
+                resources.getQuantityString(R.plurals.opens_today, opens, opens), counts.sum() / counted)), Ui.gap(this, 8f))
 
         suggestion(days.dropLast(1).filter { !it.isBefore(CountStore.firstDay(this)) })
     }
@@ -180,11 +189,14 @@ class AppDetailActivity : PageActivity() {
         if (reelsAvg < 4 && minutesAvg < 5) return
         val reels = round5(reelsAvg * 0.75)
         val minutes = round5(minutesAvg * 0.75)
+        if (platform.timeOnly && minutesAvg < 5) return
         val c = card(10f)
         c.addView(Ui.text(this, R.style.Rr_Text_CardTitle, getString(R.string.suggested_limits)))
-        c.addView(Ui.text(this, R.style.Rr_Text_Muted, getString(R.string.detail_suggestion, reelsAvg.roundToInt(), minutesAvg.roundToInt(), reels, minutes)), Ui.gap(this, 6f))
+        c.addView(Ui.text(this, R.style.Rr_Text_Muted,
+            if (platform.timeOnly) getString(R.string.detail_suggestion_time, minutesAvg.roundToInt(), minutes)
+            else getString(R.string.detail_suggestion, reelsAvg.roundToInt(), minutesAvg.roundToInt(), reels, minutes)), Ui.gap(this, 6f))
         c.addView(Ui.link(this, getString(R.string.detail_use_suggestion)) {
-            CountStore.setAppLimit(this, platform, reels)
+            if (!platform.timeOnly) CountStore.setAppLimit(this, platform, reels)
             CountStore.setAppTimeLimitMinutes(this, platform, minutes)
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = Ui.dp(this@AppDetailActivity, 4f) })
     }
@@ -200,7 +212,9 @@ class AppDetailActivity : PageActivity() {
         /** Tags for an app's rules, like "Reels blocked", "15 reels", "30 min". */
         fun ruleTags(ctx: Context, platform: Platform): List<String> {
             val tags = ArrayList<String>()
-            if (Blocking.blockAlways(ctx, platform)) {
+            if (platform.timeOnly) {
+                // No reel rules for time-only apps.
+            } else if (Blocking.blockAlways(ctx, platform)) {
                 tags += ctx.getString(if (platform.isWholeApp) R.string.tag_app_blocked else R.string.tag_reels_blocked, platform.reelWord(ctx))
             } else {
                 CountStore.appLimit(ctx, platform).takeIf { it > 0 }?.let { tags += ctx.resources.getQuantityString(R.plurals.n_reels, it, it) }

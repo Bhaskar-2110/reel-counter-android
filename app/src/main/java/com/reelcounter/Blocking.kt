@@ -207,6 +207,8 @@ object Blocking {
 
     /** Why [platform]'s Reels/Shorts are blocked now (not the whole app), or null when they aren't. */
     fun reason(ctx: Context, platform: Platform): BlockReason? {
+        // Time-only apps have no reels to block; only time limits and focus hours apply.
+        if (platform.timeOnly) return null
         if (blockAlways(ctx, platform)) return BlockReason.Always
         if (CountStore.isOverLimit(ctx, platform)) return BlockReason.Limit
         return null

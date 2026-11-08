@@ -23,7 +23,8 @@ class AllAppsActivity : PageActivity() {
                     append(if (tags.isEmpty()) getString(R.string.no_rules) else tags.joinToString(" · "))
                     if (!CountStore.isTracked(this@AllAppsActivity, platform)) append(" · ").append(getString(R.string.not_counted))
                 }
-                MainActivity.appRow(this, list, platform, sub, time = null, count = reels.toString(), chevron = true) {
+                // Time-only apps (Facebook, X, Reddit) show their minutes where reel apps show reels.
+                MainActivity.appRow(this, list, platform, sub, time = null, count = if (platform.timeOnly) time else reels.toString(), chevron = true) {
                     push(AppDetailActivity.intent(this, platform))
                 }
             }

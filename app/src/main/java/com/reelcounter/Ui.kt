@@ -83,6 +83,9 @@ object Ui {
                 Platform.TIKTOK -> "TT"
                 Platform.MOJ -> "MJ"
                 Platform.JOSH -> "JO"
+                Platform.FACEBOOK -> "FB"
+                Platform.X -> "X"
+                Platform.REDDIT -> "RD"
             },
             when (platform) {
                 Platform.INSTAGRAM -> 0xFFDD2A7B.toInt()
@@ -91,14 +94,19 @@ object Ui {
                 Platform.TIKTOK -> 0xFF111111.toInt()
                 Platform.MOJ -> 0xFFF2A900.toInt()
                 Platform.JOSH -> 0xFF6C2BD9.toInt()
+                Platform.FACEBOOK -> 0xFF1877F2.toInt()
+                Platform.X -> 0xFF111111.toInt()
+                Platform.REDDIT -> 0xFFFF4500.toInt()
             },
             ctx.resources.getFont(R.font.bricolage_grotesque),
         )
 
-    /** The reel apps worth listing: installed, or with reels counted today. */
+    /** The apps worth listing: installed, or used today (reels counted, or time for time-only apps). */
     fun listedPlatforms(ctx: Context): List<Platform> {
         val today = java.time.LocalDate.now()
-        return Platform.entries.filter { isInstalled(ctx, it) || CountStore.appCount(ctx, today, it) > 0 }
+        return Platform.entries.filter {
+            isInstalled(ctx, it) || CountStore.appCount(ctx, today, it) > 0 || (it.timeOnly && CountStore.appTime(ctx, today, it) > 0)
+        }
     }
 
     private class LetterBadge(val text: String, val color: Int, typeface: android.graphics.Typeface) : Drawable() {
@@ -401,7 +409,7 @@ object Ui {
         number.contentDescription = ctx.getString(R.string.limit_type_hint)
         pressable(number)
         number.setOnClickListener {
-            askNumber(ctx, ctx.getString(R.string.daily_reel_limit), number.text.toString().toIntOrNull() ?: value, 5, 500, onType)
+            askNumber(ctx, ctx.getString(R.string.daily_reel_limit), number.text.toString().toIntOrNull() ?: value, CountStore.LIMIT_MIN, CountStore.LIMIT_MAX, onType)
         }
         val box = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -461,9 +469,17 @@ object Ui {
 
     /**
      * A bottom sheet (design ".sheet"): a grab handle, [title], the content [build] adds, and a
-     * Done button. [onDone] runs however the sheet closes.
+     * Done button ([button] renames it; [onButton] also runs when it's tapped). [onDone] runs
+     * however the sheet closes.
      */
-    fun sheet(activity: Activity, title: CharSequence, onDone: () -> Unit = {}, build: (LinearLayout) -> Unit): BottomSheetDialog {
+    fun sheet(
+        activity: Activity,
+        title: CharSequence,
+        onDone: () -> Unit = {},
+        button: CharSequence? = null,
+        onButton: (() -> Unit)? = null,
+        build: (LinearLayout) -> Unit,
+    ): BottomSheetDialog {
         val ctx = activity
         val dialog = BottomSheetDialog(ctx)
         val box = LinearLayout(ctx).apply {
@@ -478,8 +494,11 @@ object Ui {
         }, gap(ctx, 14f))
         build(box)
         box.addView(MaterialButton(ctx).apply {
-            setText(R.string.done)
-            setOnClickListener { dialog.dismiss() }
+            text = button ?: ctx.getString(R.string.done)
+            setOnClickListener {
+                dialog.dismiss()
+                onButton?.invoke()
+            }
         }, gap(ctx, 16f))
         dialog.setContentView(box)
         dialog.behavior.state = com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED

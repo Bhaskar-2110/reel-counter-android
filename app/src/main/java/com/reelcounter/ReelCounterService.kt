@@ -149,6 +149,19 @@ class ReelCounterService : AccessibilityService() {
         CountStore.appTime(this, LocalDate.now(), platform) +
             if (timedPlatform == platform) System.currentTimeMillis() - timedSince else 0L
 
+    /** Today's time in every app together (the social media time limit), including the unsaved part. */
+    private fun totalTodayMs(): Long =
+        Stats.timeTodayMs(this) + if (timedPlatform != null) System.currentTimeMillis() - timedSince else 0L
+
+    /** How much of the daily social media time limit is used (1 = used up), or 0 when it's off. */
+    private fun totalTimeProgress(): Float {
+        val minutes = CountStore.timeLimitMinutes(this)
+        return if (minutes <= 0) 0f else totalTodayMs() / (minutes * 60_000f)
+    }
+
+    /** The app's own timer or the social media time limit is used up. */
+    private fun timeUp(platform: Platform) = timeProgress(platform) >= 1f || totalTimeProgress() >= 1f
+
     /** How much of [platform]'s daily time limit is used (1 = used up), or 0 without a limit. */
     private fun timeProgress(platform: Platform): Float {
         val minutes = CountStore.appTimeLimitMinutes(this, platform)
@@ -157,8 +170,11 @@ class ReelCounterService : AccessibilityService() {
 
     private val timeWarned = HashMap<Platform, LocalDate>()
 
+    private var totalWarned: LocalDate? = null
+
     /** Once a day per app, a buzz and a heads-up when 90% of its time limit is used. */
     private fun warnNearTimeLimit(platform: Platform) {
+        warnNearTotalTime()
         val progress = timeProgress(platform)
         val today = LocalDate.now()
         if (progress < NEAR_LIMIT || progress >= 1f || timeWarned[platform] == today) return
@@ -167,6 +183,18 @@ class ReelCounterService : AccessibilityService() {
             .coerceAtLeast(1L).toInt()
         vibrate(longArrayOf(0, 45, 90, 45))
         Toast.makeText(this, getString(R.string.time_warning, left, platform.shortName), Toast.LENGTH_LONG).show()
+        pleadUntil = SystemClock.elapsedRealtime() + PLEAD_NEAR_TIME_MS
+    }
+
+    /** Once a day, the same heads-up at 90% of the social media time limit. */
+    private fun warnNearTotalTime() {
+        val progress = totalTimeProgress()
+        val today = LocalDate.now()
+        if (progress < NEAR_LIMIT || progress >= 1f || totalWarned == today) return
+        totalWarned = today
+        val left = ((CountStore.timeLimitMinutes(this) * 60_000L - totalTodayMs()) / 60_000L).coerceAtLeast(1L).toInt()
+        vibrate(longArrayOf(0, 45, 90, 45))
+        Toast.makeText(this, getString(R.string.time_warning_total, left), Toast.LENGTH_LONG).show()
         pleadUntil = SystemClock.elapsedRealtime() + PLEAD_NEAR_TIME_MS
     }
 
@@ -203,6 +231,8 @@ class ReelCounterService : AccessibilityService() {
             }
 
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                // Time-only apps (Facebook, X, Reddit): scrolling their feeds never counts.
+                if (platform?.timeOnly == true) return
                 // Swiping on while Reels are blocked ends the "allow a reel someone sends you"
                 // grace and blocks right away, without waiting for the swipe to be counted.
                 // (Instagram reports its first video, index 0, as a scroll when Reels opens.)
@@ -450,8 +480,9 @@ class ReelCounterService : AccessibilityService() {
         sessionStart = SystemClock.elapsedRealtime()
         startTiming(platform)
 
-        // Time limit used up: the whole app stays closed until midnight.
-        if (timeProgress(platform) >= 1f) {
+        // Time limit used up (the app's own, or social media in total): the whole app stays
+        // closed until midnight.
+        if (timeUp(platform)) {
             block(platform, timeUp = true)
             return
         }
@@ -619,7 +650,7 @@ class ReelCounterService : AccessibilityService() {
         CountStore.markSeen(this, front)
         startTiming(front)
         if (System.currentTimeMillis() - timedSince > TIME_SAVE_MS) flushTime()
-        if (timeProgress(front) >= 1f) {
+        if (timeUp(front)) {
             block(front, timeUp = true)
             return@safely
         }
@@ -629,6 +660,11 @@ class ReelCounterService : AccessibilityService() {
             return@safely
         }
         warnNearTimeLimit(front)
+        // Time-only apps: nothing to count or block on screen, just Iris with the time.
+        if (front.timeOnly) {
+            if (CountStore.showBadge(this)) showIsland(front) else hideBadge()
+            return@safely
+        }
         val onShorts = isShortsScreen(front, root)
         // Leaving the pager resets its video numbering, so start afresh next time.
         if (!onShorts) furthestIndex.remove(front)
@@ -790,12 +826,15 @@ class ReelCounterService : AccessibilityService() {
             timeUp -> {
                 tint = getColor(R.color.night_sad)
                 eyes.setMood(Mood.SAD)
+                // The app's own timer, or the social media time limit for every app together.
+                val total = timeProgress(platform) < 1f && totalTimeProgress() >= 1f
                 val minutes = CountStore.appTimeLimitMinutes(this, platform)
-                title.text = getString(R.string.block_timer_title, minutes, name)
+                title.text = if (total) getString(R.string.block_total_title, Ui.minutes(CountStore.timeLimitMinutes(this) * 60_000L))
+                else getString(R.string.block_timer_title, minutes, name)
                 message.text = getString(R.string.block_opens_midnight, name)
                 card.isVisible = false
                 stats.isVisible = true
-                view.findViewById<TextView>(R.id.blockStat1).text = Ui.minutes(todayTimeMs(platform))
+                view.findViewById<TextView>(R.id.blockStat1).text = Ui.minutes(if (total) totalTodayMs() else todayTimeMs(platform))
                 view.findViewById<TextView>(R.id.blockStat1Label).setText(R.string.used_today)
                 val week = (6 downTo 0).map { LocalDate.now().minusDays(it.toLong()) }.filter { !it.isBefore(CountStore.firstDay(this)) }
                 val kept = week.count { !CountStore.limitHitOn(this, it) }
@@ -804,11 +843,15 @@ class ReelCounterService : AccessibilityService() {
                     view.findViewById<TextView>(R.id.blockStat2).text = kept.toString()
                     view.findViewById<TextView>(R.id.blockStat2Label).text = resources.getQuantityString(R.plurals.days_kept_week, kept)
                 } else {
-                    view.findViewById<TextView>(R.id.blockStat2).text = CountStore.appCount(this, LocalDate.now(), platform).toString()
-                    view.findViewById<TextView>(R.id.blockStat2Label).setText(R.string.reels_today_label)
+                    // Time-only apps have no reels: their opens today instead.
+                    view.findViewById<TextView>(R.id.blockStat2).text = (if (platform.timeOnly) CountStore.appOpens(this, LocalDate.now(), platform)
+                    else CountStore.appCount(this, LocalDate.now(), platform)).toString()
+                    view.findViewById<TextView>(R.id.blockStat2Label).setText(if (platform.timeOnly) R.string.opens_today_label else R.string.reels_today_label)
                 }
-                link.setText(R.string.change_timer)
-                link.setOnClickListener { openInApp(AppDetailActivity.intent(this, platform)) }
+                link.setText(if (total) R.string.change_time_limit else R.string.change_timer)
+                link.setOnClickListener {
+                    openInApp(if (total) Intent(this, SettingsActivity::class.java) else AppDetailActivity.intent(this, platform))
+                }
             }
             reason is BlockReason.Focus -> {
                 tint = getColor(R.color.night_curious)
@@ -906,9 +949,13 @@ class ReelCounterService : AccessibilityService() {
             handler.postDelayed(pollWhileVisible, POLL_MS)
         }
         val now = SystemClock.elapsedRealtime()
-        val progress = maxOf(CountStore.limitProgress(this, platform), timeProgress(platform))
+        // Her face follows whichever limit is closest: reels (not for time-only apps), the
+        // app's own timer, or the social media time limit.
+        val time = maxOf(timeProgress(platform), totalTimeProgress())
+        val progress = if (platform.timeOnly) time else maxOf(CountStore.limitProgress(this, platform), time)
         // The timer shows today's total time in this app; it carries on across visits and
-        // starts again from zero at midnight.
+        // starts again from zero at midnight. Time-only apps show only the timer.
+        view.timerOnly = platform.timeOnly
         view.setState(CountStore.total(this, LocalDate.now()), now - todayTimeMs(platform), progress)
         if (pleadUntil > now) {
             view.plead((pleadUntil - now) / 1000f)
@@ -917,7 +964,8 @@ class ReelCounterService : AccessibilityService() {
         // In a reel app but no reel for a while: Iris dozes off until the next one.
         // A touch on the counter counts as being awake too (the Iris spec).
         val active = maxOf(lastCountAt, sessionStart, view.lastTouchAt)
-        view.sleepy = active > 0L && now - active > SLEEPY_AFTER_MS
+        // No reels to wait for in time-only apps: she stays awake, watching the clock.
+        view.sleepy = !platform.timeOnly && active > 0L && now - active > SLEEPY_AFTER_MS
     }
 
     /**

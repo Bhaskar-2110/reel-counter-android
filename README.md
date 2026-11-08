@@ -34,8 +34,8 @@ and helps you stop when you mean to.
 - **Home-screen widgets.** Iris in her ring with today's count, and a dashboard with your top
   apps and the week.
 
-What's on your screen never leaves your phone. Signing in with Google is optional, and the app
-sends anonymous usage stats (which you can turn off). See [Permissions and privacy](#permissions-and-privacy).
+What's on your screen never leaves your phone. You sign in with Google at the end of setup (only your name and email are linked; counts stay
+on the phone), and the app sends anonymous usage stats (which you can turn off). See [Permissions and privacy](#permissions-and-privacy).
 
 ## Install
 
@@ -70,7 +70,7 @@ may stop counting after a while. **Settings → More → Permissions** shows wha
 
 | Permission | Used for |
 |---|---|
-| Accessibility service | Knowing when a Reels/Shorts/Spotlight screen is open, counting swipes, showing Iris and the pause and block screens. It doesn't read messages or what you type, and ignores apps it doesn't support. |
+| Accessibility service | Counting your reels and time, and closing apps when it's time to stop. It sees which app is open and for how long, when a new reel starts, and labels like "Sponsored" so ads don't count; shows Iris and the pause and block screens over the apps you picked (reel apps, plus Facebook, X and Reddit for time only); and closes Reels, or the whole app, when you reach a limit or focus hours by pressing Back or Home for you (also for Block Reels, app timers and your daily time limit). It never reads your messages or passwords, never types for you or taps inside your apps, and ignores apps you didn't pick. |
 | Usage access | Screen time and opens per app. |
 | Foreground service and notifications | The ongoing "N reels today" notification that keeps counting alive (can be turned off in More). |
 | Internet | Optional Google sign-in (Firebase Authentication) and anonymous usage stats (Google Analytics for Firebase). |

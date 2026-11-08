@@ -87,6 +87,18 @@
             android:name=".OnboardingActivity"
             android:exported="false" />
 
+        <!-- Onboarding 4/6: the picture-in-picture guide floating over Accessibility settings.
+             Its own task, so the PiP window and Settings don't stack on top of onboarding. -->
+        <activity
+            android:name=".GuideActivity"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:supportsPictureInPicture="true"
+            android:taskAffinity="com.reelcounter.guide" />
+
         <!-- Screens one level down (design/Rokoreels App Flow.html) -->
         <activity android:name=".AllAppsActivity" android:exported="false" android:parentActivityName=".MainActivity" />
         <activity android:name=".AppDetailActivity" android:exported="false" android:parentActivityName=".MainActivity" />

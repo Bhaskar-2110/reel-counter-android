@@ -4,7 +4,8 @@
     <string name="app_name">Rokoreels</string>
 
     <string name="service_label">Rokoreels</string>
-    <string name="service_description">Counts the short videos you swipe through in Instagram Reels, YouTube Shorts, Snapchat Spotlight, TikTok, Moj and Josh, shows Iris while you watch, and takes you out of them when you reach your daily limit or your focus hours. It looks only at which screen is open, reads no text or messages, and never sends what\'s on your screen anywhere.</string>
+    <!-- Shown by Android in Accessibility settings; keep in step with onboarding 4/6 (onb_access_*). -->
+    <string name="service_description">Counts the short videos you swipe through in Instagram Reels, YouTube Shorts, Snapchat Spotlight, TikTok, Moj and Josh, times how long you spend in these apps and in Facebook, X and Reddit, shows Iris over them, and takes you out of them when you reach your daily limits or your focus hours. It looks only at which screen is open and labels like \"Sponsored\", reads no messages or passwords, and never sends what\'s on your screen anywhere.</string>
 
     <!-- Common -->
     <string name="back">Back</string>
@@ -169,7 +170,6 @@
     <string name="version">Rokoreels %1$s</string>
     <string name="daily_reel_limit">Daily reel limit</string>
     <string name="daily_limit_sub">All apps together. About %1$d min of reels a day.</string>
-    <string name="suggested_n">%1$d · suggested</string>
     <string name="limit_minus">5 fewer</string>
     <string name="limit_plus">5 more</string>
     <string name="setting_block">Close reels when I reach it</string>
@@ -243,7 +243,7 @@
     <string name="help_text">• Counting stopped? Open Settings → the Fix card, or More → Permissions, and turn everything green.\n\n• Accessibility switch greyed out? Open App info for Rokoreels, tap ⋮ → Allow restricted settings, then try again.\n\n• The first reel you open isn\'t counted until you swipe to the next one.\n\n• An app stopped being counted after an update? It renamed its reels screen; tell us which app and version.</string>
     <string name="privacy">Privacy</string>
     <string name="privacy_sub">What you watch never leaves your phone</string>
-    <string name="privacy_text">Rokoreels only notices which app and screen are open and when you swipe, never your messages, passwords or what\'s in the videos. Counts and settings are kept in the app\'s private storage on this phone.\n\nAnonymous usage stats (Google Analytics for Firebase): which setup steps you finish, when a limit, pause or block screen happens, and a daily total of reels per app. No names, emails or advertising ID. Turn it off in More → Share anonymous usage stats.\n\nSigning in with Google is optional and links only your name and email to an account.</string>
+    <string name="privacy_text">Rokoreels uses Android\'s Accessibility service to count your reels and time, and to close apps when it\'s time to stop. It sees which app is open and for how long, when a new reel starts, and labels like \"Sponsored\" so ads don\'t count. It shows Iris over the apps you picked. It closes Reels, or the whole app, when you reach a limit or focus hours, by pressing Back or Home for you, also for Block Reels, app timers and your daily time limit. It never reads your messages or passwords, never types for you or taps inside your apps, and what\'s on your screen never leaves your phone. Counts and settings are kept in the app\'s private storage on this phone.\n\nAnonymous usage stats (Google Analytics for Firebase): which setup steps you finish, when a limit, pause or block screen happens, and a daily total of reels per app. No names, emails or advertising ID. Turn it off in More → Share anonymous usage stats.\n\nYou sign in with Google when you set up Rokoreels. It links only your name and email to an account; your counts and settings stay on this phone.</string>
     <string name="share_stats">Share anonymous usage stats</string>
     <string name="share_stats_sub">Daily reel totals and which screens you use. No names or what you watch.</string>
     <string name="about">About Rokoreels</string>
@@ -317,7 +317,7 @@
     <string name="back_to_app">Back to %1$s</string>
 
     <!-- Onboarding -->
-    <string name="step_of">%1$d/6</string>
+    <string name="step_of">%1$d/7</string>
     <string name="onb_welcome_title">Every reel, counted.</string>
     <string name="onb_welcome_text">We count the reels you watch and help you stop when you mean to.</string>
     <string name="get_started">Get started</string>
@@ -326,7 +326,7 @@
     <!-- Account (Google sign-in through Firebase) -->
     <string name="account">Account</string>
     <string name="sign_in_google">Sign in with Google</string>
-    <string name="sign_in_google_sub">Optional. Only your name and email are linked.</string>
+    <string name="sign_in_google_sub">Only your name and email are linked.</string>
     <string name="sign_in_not_set_up">Sign-in isn\'t set up in this build.</string>
     <string name="sign_in_failed">Couldn\'t sign in. Check your connection and try again.</string>
     <string name="signed_in_as">Signed in as %1$s</string>
@@ -334,7 +334,7 @@
     <string name="sign_out_confirm">Sign out of %1$s? Your counts and settings stay on this phone.</string>
     <string name="onb_continue">Continue</string>
     <string name="onb_apps_title">Which apps pull you in?</string>
-    <string name="onb_apps_text">We\'ll count reels in these. You can change it later.</string>
+    <string name="onb_apps_text">We\'ll count reels and time in these (Facebook, X and Reddit: time only). You can change it later in Settings.</string>
     <string name="onb_week_title">See what reels cost you</string>
     <string name="onb_week_text">Allow usage access and we\'ll show how much time these apps took last week. It stays on your phone.</string>
     <string name="onb_number_here">Your number appears here</string>
@@ -350,17 +350,138 @@
     <string name="onb_week_light">A light week. Let\'s keep it that way.</string>
     <string name="onb_week_help">Rokoreels will help you take some of that back.</string>
     <string name="onb_limit_question">How many reels a day feels right?</string>
-    <string name="onb_minutes_a_day">About %1$d min a day at a typical pace</string>
     <string name="most_pick">%1$d · most pick</string>
-    <string name="onb_set_n">Set %1$d a day</string>
+    <!-- Onboarding 3/6: the combination lock (design/reel-limit-lock.html) -->
+    <string name="lock_lede">Roll the three dials to set your daily limit.</string>
+    <string name="lock_title_locked">Promise locked.</string>
+    <plurals name="lock_lede_locked">
+        <item quantity="one">%1$d reel a day, starting today. Iris will keep count and nudge you as you get close.</item>
+        <item quantity="other">%1$d reels a day, starting today. Iris will keep count and nudge you as you get close.</item>
+    </plurals>
+    <string name="lock_hundreds">Hundreds</string>
+    <string name="lock_tens">Tens</string>
+    <string name="lock_ones">Ones</string>
+    <plurals name="lock_reels_a_day">
+        <item quantity="one">reel a day</item>
+        <item quantity="other">reels a day</item>
+    </plurals>
+    <string name="lock_pick_one">Pick at least 1 reel</string>
+    <string name="lock_about">About %1$s of reels a day</string>
+    <string name="lock_bit_more">About %1$s a day. A bit more than most pick.</string>
+    <string name="lock_thats">That\'s %1$s a day. Most people pick 100.</string>
+    <string name="lock_min">%1$d min</string>
+    <string name="lock_h">%1$d h</string>
+    <string name="lock_h_min">%1$d h %2$d min</string>
+    <plurals name="lock_oath">
+        <item quantity="one">I promise to keep it to %1$d reel a day.</item>
+        <item quantity="other">I promise to keep it to %1$d reels a day.</item>
+    </plurals>
+    <string name="lock_hold">Hold to lock it in</string>
+    <string name="lock_hint">Press and hold for 2.5 seconds to make it a promise</string>
+    <string name="lock_keep">Keep holding…</string>
+    <string name="lock_too_soon">Let go too soon. Hold until the bar fills.</string>
+    <string name="lock_later">You can change it later in Settings.</string>
+    <string name="lock_change">Change the number</string>
+    <!-- Onboarding 3/6, second lock: daily social media time (2026-11-07) -->
+    <string name="lock_hours">Hours</string>
+    <string name="lock_minutes">Minutes</string>
+    <string name="lock_time_title">And how much social media a day?</string>
+    <string name="lock_time_lede">Roll the dials to set your daily time limit for all the apps you picked together.</string>
+    <string name="lock_time_lede_locked">%1$s a day across your apps, starting today. Iris will show the time and nudge you as you get close.</string>
+    <string name="lock_most_pick_text">%1$s · most pick</string>
+    <string name="lock_time_unit">a day</string>
+    <string name="lock_time_pick_one">Pick at least 15 min</string>
+    <string name="lock_time_about">About %1$d h a week, all your apps together</string>
+    <string name="lock_time_bit_more">About %1$d h a week. A bit more than most pick.</string>
+    <string name="lock_time_thats">That\'s %1$d h a week. Most people pick %2$s.</string>
+    <string name="lock_time_oath">I promise to keep social media to %1$s a day.</string>
+    <!-- Daily social media time limit (Settings, service) -->
+    <string name="time_limit">Time limit</string>
+    <string name="time_limit_title">Daily time limit</string>
+    <string name="time_limit_sub">All your monitored apps together. Used today: %1$s. Reaching it closes them until midnight.</string>
+    <string name="time_limit_type">Type your own number of minutes</string>
+    <string name="time_warning_total">About %1$d min of social media left today.</string>
+    <string name="block_total_title">Your %1$s of social media is up for today</string>
+    <string name="change_time_limit">Change my time limit</string>
+    <string name="opens_today_label">Opens today</string>
+    <string name="monitored_apps">Monitored apps</string>
+    <string name="monitored_keep_one">Keep at least one app.</string>
+    <string name="app_week_line_time">%1$s · about %2$d min a day</string>
+    <string name="detail_suggestion_time">You average %1$d minutes a day here. Try %2$d minutes.</string>
     <string name="onb_access_title">Turn on reel counting</string>
-    <string name="onb_access_text">Rokoreels uses Android\'s Accessibility service to notice when you swipe to a new reel.</string>
-    <string name="onb_access_yes1">Sees which app is open and when a new reel starts</string>
-    <string name="onb_access_yes2">Shows Iris over reel apps</string>
+    <string name="onb_access_text">Rokoreels uses Android\'s Accessibility service to count your reels and time, and to close apps when it\'s time to stop. Here\'s everything it does with it.</string>
+    <string name="onb_access_yes1">Sees which app is open and for how long, when a new reel starts, and labels like \"Sponsored\" so ads don\'t count</string>
+    <string name="onb_access_yes2">Shows Iris over the apps you picked</string>
     <string name="onb_access_no1">Never reads your messages, passwords or what\'s in the videos</string>
-    <string name="onb_access_no2">What\'s on your screen never leaves your phone</string>
+    <string name="onb_access_yes3">Closes Reels, or the whole app, when you reach a limit or focus hours</string>
+    <string name="onb_access_yes3_sub">By pressing Back or Home for you, also for Block Reels, app timers and your daily time limit</string>
+    <!-- Onboarding 4/6 (design/reel-counting-permission.html) -->
+    <string name="onb_access_private">What\'s on your screen never leaves your phone.</string>
+    <string name="onb_access_taps">3 taps in Settings</string>
+    <string name="onb_access_crumb1">Downloaded apps</string>
+    <string name="onb_access_crumb3">Turn on</string>
+    <string name="onb_access_crumbs">Downloaded apps, then Rokoreels, then turn it on</string>
+    <string name="onb_access_guide_title">A small video guide comes with you.</string>
+    <string name="onb_access_guide_text">It floats over Settings and shows each tap, then brings you back here when you\'re done.</string>
+    <string name="onb_access_full_link">Android will say \"full control\". What does that mean?</string>
+    <string name="onb_access_grey_link">Can\'t turn it on? (switch greyed out)</string>
+    <string name="onb_access_hint">You can turn it off any time in Settings.</string>
+    <string name="onb_access_tick_first">Tick the box first so you know what you\'re turning on.</string>
+    <string name="onb_access_still_off">Counting is still off.</string>
+    <string name="onb_access_still_off_text">Nothing changed on your phone. Try again whenever you\'re ready.</string>
+    <string name="onb_access_on_title">Reel counting is on</string>
+    <string name="onb_access_on_text">Rokoreels will count every new reel in the apps you picked.</string>
+    <string name="onb_access_r1">Notices new reels</string>
+    <string name="onb_access_r2">Shows Iris over the apps you picked</string>
+    <string name="onb_access_r_close">Closes apps at your limits</string>
+    <string name="onb_access_r3">Reads messages or passwords</string>
+    <string name="onb_access_r4">Turn it off</string>
+    <string name="onb_access_on">On</string>
+    <string name="onb_access_never">Never</string>
+    <string name="onb_access_where">Settings › Accessibility</string>
+    <string name="onb_access_on_hint">Turn it off any time in Settings › Accessibility.</string>
+    <string name="full_title">About Android\'s \"full control\" message</string>
+    <string name="full_text">Android shows the same message for every app that uses Accessibility, including screen readers. Here\'s what each line means for Rokoreels.</string>
+    <string name="full_q1">\"View and control screen\"</string>
+    <string name="full_a1">Rokoreels checks which app is open and for how long, whether a new reel appeared, and looks for labels like \"Sponsored\" or \"Ad\" so ads aren\'t counted. It also shows Iris on top of the apps you picked. It never reads your messages or passwords.</string>
+    <string name="full_q2">\"View and perform actions\"</string>
+    <string name="full_a2">Rokoreels notices your swipe. It presses Back or Home to close Reels or the app when you reach your daily limit, during focus hours, when you use Block Reels, or when an app timer or your daily time limit runs out. It never types for you or taps inside your apps.</string>
+    <string name="got_it">Got it</string>
+    <string name="grey_title">If the switch is greyed out</string>
+    <string name="grey_text">Android blocks Accessibility for apps installed outside the Play Store until you allow it once.</string>
+    <string name="grey_s1">Open <b>App info</b> for Rokoreels</string>
+    <string name="grey_s2">Tap <b>⋮</b> in the top corner</string>
+    <string name="grey_s3">Tap <b>Allow restricted settings</b></string>
+    <string name="grey_s3_sub">Confirm with your PIN or fingerprint</string>
+    <string name="grey_s4">Come back and turn on counting</string>
+    <string name="grey_button">Open App info</string>
+    <!-- Picture-in-picture setup guide (GuideActivity) -->
+    <string name="guide_label">Rokoreels setup guide</string>
+    <string name="guide_step">Step %1$d of 3</string>
+    <string name="guide_t1">Tap Downloaded apps</string>
+    <string name="guide_t2">Tap Rokoreels</string>
+    <string name="guide_t3">Turn on Rokoreels, then tap Allow</string>
+    <string name="guide_done">Counting is on.\nTaking you back…</string>
+    <string name="guide_prev">Previous step</string>
+    <string name="guide_next">Next step</string>
+    <string name="guide_pause">Pause</string>
+    <string name="guide_play">Play</string>
+    <!-- The mini copy of Android's Settings drawn inside the guide -->
+    <string name="mini_accessibility">Accessibility</string>
+    <string name="mini_menu">Accessibility Menu</string>
+    <string name="mini_button">Accessibility button</string>
+    <string name="mini_lock_shortcut">Shortcut from Lock screen</string>
+    <string name="mini_more">More</string>
+    <string name="mini_guided">Guided vision</string>
+    <string name="mini_link_pc">Link to PC</string>
+    <string name="mini_notes">Screen Notes</string>
+    <string name="mini_off">Off</string>
+    <string name="mini_shortcut">Shortcut</string>
+    <string name="mini_app_info">App info</string>
+    <string name="mini_dialog">Allow Rokoreels to have full control of your device?</string>
+    <string name="mini_deny">Deny</string>
+    <string name="mini_allow">Allow</string>
     <string name="onb_access_agree">I understand how Rokoreels uses Accessibility</string>
-    <string name="onb_access_required">Rokoreels can\'t count reels without this. You can turn it off any time in Settings.</string>
     <string name="onb_running_required">Allow notifications to keep going. Without them, Android stops the counter after a while.</string>
     <string name="onb_running_title">Keep counting all day</string>
     <string name="onb_running_text">Android likes to close apps in the background. One quick switch stops that.</string>
@@ -376,6 +497,11 @@
     <string name="face_worried">Worried</string>
     <string name="face_limit">At limit</string>
     <string name="go_home">Go to Home</string>
+    <!-- Onboarding 7/7: sign in (required, 2026-11-08) -->
+    <string name="onb_signin_title">Last step: sign in</string>
+    <string name="onb_signin_text">Sign in with Google to finish setting up. Only your name and email are linked to your account. Your counts and settings stay on this phone.</string>
+    <string name="onb_signin_button">Continue with Google</string>
+    <string name="onb_signin_wait">Signing in…</string>
 
     <!-- Screen time -->
     <string name="usage_screen_title">Screen time</string>

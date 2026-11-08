@@ -72,8 +72,15 @@ class SettingsActivity : PageActivity() {
         val rules = Platform.entries.count { AppDetailActivity.ruleTags(this, it).isNotEmpty() }
         val focusOn = Blocking.schedules(this).count { it.enabled }
         val free = CountStore.freeOpens(this)
+        val timeLimit = CountStore.timeLimitMinutes(this)
+        val monitored = Platform.entries.count { CountStore.isTracked(this, it) }
+        // Two kinds of limit: reels a day, and social media time a day.
         tiles(
             Tile(R.drawable.ic_limit, attrColor(R.attr.rrAccent), resources.getQuantityString(R.plurals.n_reels, limit, limit), getString(R.string.daily_limit)) { dailyLimitSheet(this) },
+            Tile(R.drawable.ic_timer, moodColor(4), if (timeLimit > 0) Ui.minutes(timeLimit * 60_000L) else getString(R.string.off),
+                getString(R.string.time_limit)) { timeLimitSheet(this) },
+            Tile(R.drawable.ic_eye, moodColor(0), resources.getQuantityString(R.plurals.n_apps, monitored, monitored),
+                getString(R.string.monitored_apps)) { monitoredAppsSheet(this) },
             Tile(R.drawable.ic_apps, moodColor(1), resources.getQuantityString(R.plurals.n_apps, rules, rules), getString(R.string.app_rules)) {
                 push(Intent(this, AppRulesActivity::class.java))
             },
@@ -208,18 +215,76 @@ class SettingsActivity : PageActivity() {
         /** Iris's size as a percentage of the design's 56dp. */
         fun sizePercent(dp: Int) = (dp * 100f / CountStore.COUNTER_SIZE_DEFAULT / 10f).let { Math.round(it) * 10 }
 
+        /**
+         * "Daily time limit": social media time across every monitored app together (reel apps
+         * included). Off, quick picks, or a typed number of minutes (rounded to 15). Reaching it
+         * closes the apps until midnight, like an app's own timer.
+         */
+        fun timeLimitSheet(activity: Activity) {
+            val ctx = activity
+            val current = CountStore.timeLimitMinutes(ctx)
+            val picks = listOf(0, 60, 90, 120, 150, 180, 240, 300)
+            lateinit var sheet: com.google.android.material.bottomsheet.BottomSheetDialog
+            sheet = Ui.sheet(activity, ctx.getString(R.string.time_limit_title)) { box ->
+                box.addView(Ui.text(ctx, R.style.Rr_Text_Muted,
+                    ctx.getString(R.string.time_limit_sub, Ui.minutes(Stats.timeTodayMs(ctx)))), Ui.gap(ctx, 6f))
+                box.addView(Ui.opts(ctx, picks, current, 4,
+                    { if (it == 0) ctx.getString(R.string.off) else Ui.minutes(it * 60_000L) }) {
+                    CountStore.setTimeLimitMinutes(ctx, it)
+                    Analytics.timeLimitSet(ctx, it)
+                }, Ui.gap(ctx, 14f))
+                box.addView(Ui.link(ctx, ctx.getString(R.string.time_limit_type)) {
+                    Ui.askNumber(ctx, ctx.getString(R.string.time_limit_title), current.takeIf { it > 0 } ?: TimeLock.DEFAULT,
+                        CountStore.TIME_LIMIT_MIN, CountStore.TIME_LIMIT_MAX) {
+                        val m = TimeLock.dials(it).let { d -> TimeLock.value(d[0], d[1]) }.coerceIn(CountStore.TIME_LIMIT_MIN, CountStore.TIME_LIMIT_MAX)
+                        CountStore.setTimeLimitMinutes(ctx, m)
+                        Analytics.timeLimitSet(ctx, m)
+                        sheet.dismiss()
+                    }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = Ui.dp(ctx, 12f)
+                    gravity = Gravity.CENTER_HORIZONTAL
+                })
+            }
+        }
+
+        /**
+         * "Monitored apps": the same chips as onboarding's first step. Unticked apps are ignored
+         * completely (no Iris, no time, no limits). At least one stays ticked.
+         */
+        fun monitoredAppsSheet(activity: Activity) {
+            val ctx = activity
+            Ui.sheet(activity, ctx.getString(R.string.monitored_apps)) { box ->
+                box.addView(Ui.text(ctx, R.style.Rr_Text_Muted, ctx.getString(R.string.onb_apps_text)), Ui.gap(ctx, 6f))
+                val chips = Ui.chipFlow(ctx)
+                for (p in Platform.entries) {
+                    val icon = Ui.appIconOrBadge(ctx, p).let { it.constantState?.newDrawable()?.mutate() ?: it }
+                    chips.addView(Ui.chip(ctx, p.shortName, CountStore.isTracked(ctx, p), icon) { chip ->
+                        val on = !chip.isSelected
+                        if (!on && Platform.entries.count { CountStore.isTracked(ctx, it) } <= 1) {
+                            android.widget.Toast.makeText(ctx, R.string.monitored_keep_one, android.widget.Toast.LENGTH_SHORT).show()
+                            return@chip
+                        }
+                        chip.isSelected = on
+                        CountStore.setTracked(ctx, p, on)
+                    })
+                }
+                box.addView(chips, Ui.gap(ctx, 14f))
+            }
+        }
+
         /** "Daily reel limit": the stepper, quick picks and whether reaching it blocks reels. */
         fun dailyLimitSheet(activity: Activity) {
             val ctx = activity
             Ui.sheet(activity, ctx.getString(R.string.daily_reel_limit)) { box ->
                 val sub = Ui.text(ctx, R.style.Rr_Text_Muted)
-                fun subText(v: Int) = ctx.getString(R.string.daily_limit_sub, Math.round(v * 2.3f))
+                fun subText(v: Int) = ctx.getString(R.string.daily_limit_sub, LimitLock.minutes(v))
                 sub.text = subText(CountStore.limit(ctx))
                 box.addView(sub, Ui.gap(ctx, 6f))
                 var number: TextView? = null
                 val chips = ArrayList<TextView>()
                 fun set(v: Int) {
-                    val value = v.coerceIn(5, 500)
+                    val value = v.coerceIn(CountStore.LIMIT_MIN, CountStore.LIMIT_MAX)
                     CountStore.setLimit(ctx, value)
                     Analytics.limitSetSoon(ctx, value)
                     number?.text = value.toString()
@@ -234,8 +299,9 @@ class SettingsActivity : PageActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER
                 }
-                for (v in listOf(20, 30, 50)) {
-                    val label = if (v == 30) ctx.getString(R.string.suggested_n, v) else v.toString()
+                // Same picks as onboarding's lock: 50, "100 · most pick", 200.
+                for (v in LimitLock.QUICK_PICKS) {
+                    val label = if (v == LimitLock.DEFAULT) ctx.getString(R.string.most_pick, v) else v.toString()
                     row.addView(Ui.chip(ctx, label, CountStore.limit(ctx) == v) { set(v) }.also {
                         it.tag = v
                         chips += it
